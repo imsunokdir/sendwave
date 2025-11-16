@@ -36,7 +36,10 @@
    - Search emails via Elasticsearch  
 
 6. **RAG-Based Suggested Replies (Gemini)**  
-   - Uses ChromaDB embeddings + Gemini to suggest replies based on outreach data  
+   - Pinecone stores vectors & performs similarity search
+   - Gemini uses retrieved context to generate reply suggestions
+   - Gemini generates the embeddings
+   - Produces dynamic, personalized outreach replies
 
 ---
 
