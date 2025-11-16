@@ -46,3 +46,14 @@
 
 ### Environment Variables (`server/.env`)
 
+## Future Plans
+
+- **Dynamic Email Integration:** Add a feature to dynamically add new email accounts (Gmail, Yahoo, Outlook, etc.) without restarting the service.  
+- **Email Sending:** Implement sending emails directly from Onebox after generating suggested replies.  
+- **Advanced Categorization:** Support custom categories and multi-language emails.  
+- **User Management:** Add login system for multiple users with separate accounts and preferences.  
+- **Analytics Dashboard:** Show stats like number of emails per category, reply rates, and engagement metrics.  
+- **Optimized Hosting:** Deploy Elasticsearch and ChromaDB efficiently on cloud for production use.  
+- **Improved UI/UX:** Add notifications, real-time updates on frontend, and responsive design for mobile devices.  
+
+
