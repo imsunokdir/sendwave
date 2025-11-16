@@ -42,6 +42,8 @@
 
 ## Setup Instructions
 
+**For simplicity, users currently need to hard-code email credentials in the .env file. Only 2 email accounts max are supported at this stage. Dynamic addition of accounts will be implemented in a future update.**
+
 ### Prerequisites
 - Docker & Docker Compose installed  
 - `.env` file with email credentials, API keys, and URLs  
