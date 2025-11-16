@@ -35,7 +35,7 @@
    - Show AI categorization  
    - Search emails via Elasticsearch  
 
-6. **RAG-Based Suggested Replies (Gemini)**  
+6. **RAG-Based Suggested Replies (pincone)**  
    - Pinecone stores vectors & performs similarity search
    - Gemini uses retrieved context to generate reply suggestions
    - Gemini generates the embeddings
