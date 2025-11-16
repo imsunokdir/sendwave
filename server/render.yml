@@ -1,0 +1,58 @@
+services:
+  # Your Node.js Backend (with Pinecone)
+  - type: web
+    name: email-backend
+    env: docker
+    dockerfilePath: ./Dockerfile
+    region: oregon # Choose: oregon, frankfurt, singapore
+    plan: starter # Free tier: 750 hours/month
+    numInstances: 1
+    healthCheckPath: /health # Add a health check endpoint
+    envVars:
+      # Server
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+
+      # Pinecone (add these in Render dashboard as secrets)
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX_HOST
+        sync: false
+
+      # Gemini
+      - key: GEMINI_API_KEY
+        sync: false
+
+      # Elasticsearch (connect to internal service)
+      - key: ELASTICSEARCH_URL
+        fromService:
+          type: pserv
+          name: elasticsearch
+          property: hostport
+
+      # Email credentials
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+
+  # Elasticsearch (Private Service)
+  - type: pserv
+    name: elasticsearch
+    env: docker
+    dockerfilePath: ./Dockerfile.elastic
+    region: oregon
+    plan: starter
+    disk:
+      name: elasticsearch-data
+      mountPath: /usr/share/elasticsearch/data
+      sizeGB: 10
+    envVars:
+      - key: discovery.type
+        value: single-node
+      - key: xpack.security.enabled
+        value: "false"
+      - key: ES_JAVA_OPTS
+        value: "-Xms512m -Xmx512m" # Reduced for Render's free tier

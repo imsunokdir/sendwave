@@ -18,6 +18,8 @@ export const generateRAGRepliesGemini = async (
       emailQuery,
       3
     );
+
+    console.log("contrent length:", contexts.length);
     console.log("contexts:**", contexts);
 
     if (contexts.length === 0) return generateFallbackReplies(email);
