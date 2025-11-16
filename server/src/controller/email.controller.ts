@@ -9,7 +9,8 @@ import { recategorizePendingEmails } from "../ai/reCategorizejob";
 import { generateSuggestedReplies } from "../ai/geminiSuggestedReplies";
 import { EmailType } from "../types/EmailTypes";
 import nodemailer from "nodemailer";
-import { generateRAGReplies } from "../ai/ragReplies";
+import { generateRAGRepliesGemini } from "../ai/ragReplies";
+import { ai } from "src/ai/gemini";
 
 type EmailsResponse = {
   emails: EmailType[];
@@ -192,7 +193,7 @@ export const getSuggestedRepliesController = async (
 
     const email = result.email as EmailType;
 
-    const suggestedReplies = await generateRAGReplies(email);
+    const suggestedReplies = await generateRAGRepliesGemini(email);
 
     res.json({
       emailId: email.id,

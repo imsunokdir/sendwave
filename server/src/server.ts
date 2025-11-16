@@ -55,18 +55,18 @@ const startServer = async () => {
     await seedTrainingData();
 
     // Check Ollama status
-    const ollamaReady = await checkOllamaStatus();
-    if (!ollamaReady) {
-      console.warn("⚠️ Ollama is not ready. Start it with: ollama serve");
-    }
+    // const ollamaReady = await checkOllamaStatus();
+    // if (!ollamaReady) {
+    //   console.warn("⚠️ Ollama is not ready. Start it with: ollama serve");
+    // }
 
     // Start IMAP connections
     await startIMAPConnections();
 
     // Start background recategorization job only if Ollama is ready
-    if (ollamaReady) {
-      startRecategorizationJob();
-    }
+    // if (ollamaReady) {
+    //   startRecategorizationJob();
+    // }
 
     // Start Express server
     app.listen(PORT, () => {
