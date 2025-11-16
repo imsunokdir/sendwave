@@ -42,7 +42,7 @@
 
 ## Setup Instructions
 
-**For simplicity, users currently need to hard-code email credentials in the .env file. Only 2 email accounts max are supported at this stage. Dynamic addition of accounts will be implemented in a future update.**
+**For simplicity, users currently need to hard-code email and app password in the .env file. Only 2 email accounts max are supported at this stage.**
 
 ### Prerequisites
 - Docker & Docker Compose installed  
