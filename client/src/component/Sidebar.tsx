@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import type { SidebarProps } from "../types/sidebarProps";
 
 const Sidebar = ({

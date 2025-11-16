@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import type { EmailViewerProps } from "../types/emailViewerProps";
 import SuggestedReplies from "./SuggestedReplies";
 
