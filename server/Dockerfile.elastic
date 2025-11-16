@@ -1,0 +1,8 @@
+FROM docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+
+# Disable security for single node
+ENV discovery.type=single-node
+ENV xpack.security.enabled=false
+ENV ES_JAVA_OPTS="-Xms512m -Xmx512m"
+
+EXPOSE 9200
