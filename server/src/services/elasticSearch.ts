@@ -1,13 +1,13 @@
 import { Client } from "@elastic/elasticsearch";
 import { simpleParser } from "mailparser";
-import { categorizeEmail } from "../ai/ollamaAiCategorization";
+// import { categorizeEmail } from "../ai/ollamaAiCategorization";
 import { sendInterestedNotifications } from "./notify";
 import { EmailType } from "src/types/EmailTypes";
 // import { categorizeEmail } from "../ai/groqAiCategorization";
-// import { categorizeEmail } from "../ai/geminiCategorization";
+import { categorizeEmail } from "../ai/geminiCategorization";
 
 export const elasticClient = new Client({
-  node: "http://localhost:9200",
+  node: "http://elasticsearch:9200",
 });
 
 export const indexEmail = async (
