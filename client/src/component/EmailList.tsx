@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import type { EmailListProps } from "../types/emailListProps";
 
 const EmailList = ({
@@ -19,7 +19,7 @@ const EmailList = ({
       return (
         e.subject.toLowerCase().includes(q) ||
         e.from.toLowerCase().includes(q) ||
-        e.snippet.toLowerCase().includes(q)
+        e.snippet?.toLowerCase().includes(q)
       );
     });
   }, [emails, query, selectedAccount, selectedFolder]);

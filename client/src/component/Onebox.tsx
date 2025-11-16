@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { EmailType } from "../types/emailType";
 import { fetchEmails } from "../services/emailService";
 import Sidebar from "./Sidebar";
