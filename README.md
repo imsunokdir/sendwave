@@ -1,4 +1,6 @@
 
+**Project Assets:** [Download Here](https://drive.google.com/file/d/1cTRKk1MhmGXvYER2D2hDj_hDKsZmDRci/view?usp=sharing)
+
 **Description:**  
 1. **IMAP Email Accounts:** Real-time syncing via persistent connections.  
 2. **Backend API:** Node.js + TypeScript handles email fetching, indexing, and AI categorization.  
