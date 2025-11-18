@@ -1,35 +1,3 @@
-// import { ImapTypes } from "src/types/imapTypes";
-// import dotenv from "dotenv";
-// import { connectToIMAP } from "../imap/imapClient";
-
-// dotenv.config();
-
-// export const startIMAPConnections = async () => {
-//   console.log("Starting IMAP connections...");
-
-//   const accounts: ImapTypes[] = [
-//     {
-//       host: "imap.gmail.com",
-//       port: 993,
-//       secure: true,
-//       user: process.env.USER1!,
-//       password: process.env.APP_PASSWORD1!,
-//     },
-//     {
-//       host: "imap.gmail.com",
-//       port: 993,
-//       secure: true,
-//       user: process.env.USER2!,
-//       password: process.env.APP_PASSWORD2!,
-//     },
-//   ];
-
-//   // Loop through accounts and connect
-//   for (const acc of accounts) {
-//     await connectToIMAP(acc);
-//   }
-// };
-
 import { ImapTypes } from "../types/imapTypes";
 import dotenv from "dotenv";
 import { connectToIMAP } from "../imap/imapClient";

@@ -11,6 +11,7 @@ import { EmailType } from "../types/EmailTypes";
 import nodemailer from "nodemailer";
 import { generateRAGRepliesGemini } from "../ai/ragReplies";
 import { ai } from "src/ai/gemini";
+import { generateRAGRepliesOllama } from "../ai/ollamaSuggestedReplies";
 
 type EmailsResponse = {
   emails: EmailType[];
@@ -193,7 +194,7 @@ export const getSuggestedRepliesController = async (
 
     const email = result.email as EmailType;
 
-    const suggestedReplies = await generateRAGRepliesGemini(email);
+    const suggestedReplies = await generateRAGRepliesOllama(email);
 
     res.json({
       emailId: email.id,
