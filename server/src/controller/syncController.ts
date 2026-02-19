@@ -4,6 +4,7 @@ import { startSyncJob } from "../jobs/syncJob";
 
 export const startSync = async (req: Request, res: Response) => {
   const userId = req.user?.id;
+  console.log("user id:", userId);
   const { accounts } = req.body;
 
   if (!accounts || !Array.isArray(accounts)) {

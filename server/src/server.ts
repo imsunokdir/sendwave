@@ -199,7 +199,7 @@ app.use(
   cors({
     origin: process.env.FRONTEND_URL,
     credentials: true,
-  })
+  }),
 );
 
 // Routes
@@ -207,43 +207,44 @@ app.use("/emails", emailRouter);
 app.use("/accounts", accountRouter);
 app.use("/auth", authRouter);
 app.use("/sync", syncRouter);
+app.use("/test", testRouter);
 
 // ---------------- BACKGROUND JOBS STARTER ----------------
-const startBackgroundJobs = async () => {
-  try {
-    console.log("🔍 Checking ChromaDB health...");
-    const chromaHealthy = await checkVectorDBHealth();
-    if (!chromaHealthy) {
-      console.error(
-        "❌ ChromaDB not running. Start with: docker-compose up -d"
-      );
-      return; // Do NOT exit server, keep frontend alive
-    }
+// const startBackgroundJobs = async () => {
+//   try {
+//     console.log("🔍 Checking ChromaDB health...");
+//     const chromaHealthy = await checkVectorDBHealth();
+//     if (!chromaHealthy) {
+//       console.error(
+//         "❌ ChromaDB not running. Start with: docker-compose up -d"
+//       );
+//       return; // Do NOT exit server, keep frontend alive
+//     }
 
-    console.log("📦 Initializing Vector DB...");
-    await initializeVectorDB();
+//     console.log("📦 Initializing Vector DB...");
+//     await initializeVectorDB();
 
-    console.log("🌱 Seeding training data (if needed)...");
-    await seedTrainingData();
+//     console.log("🌱 Seeding training data (if needed)...");
+//     await seedTrainingData();
 
-    console.log("🤖 Checking Ollama status...");
-    const ollamaReady = await checkOllamaStatus();
+//     console.log("🤖 Checking Ollama status...");
+//     const ollamaReady = await checkOllamaStatus();
 
-    // console.log("📬 Starting IMAP connections...");
-    // await startIMAPConnections();
+//     // console.log("📬 Starting IMAP connections...");
+//     // await startIMAPConnections();
 
-    // if (ollamaReady) {
-    //   console.log("🔁 Starting Background Recategorization Job...");
-    //   startRecategorizationJob();
-    // } else {
-    //   console.warn("⚠️ Recategorization skipped — Ollama not ready");
-    // }
+//     // if (ollamaReady) {
+//     //   console.log("🔁 Starting Background Recategorization Job...");
+//     //   startRecategorizationJob();
+//     // } else {
+//     //   console.warn("⚠️ Recategorization skipped — Ollama not ready");
+//     // }
 
-    // console.log("✅ Background jobs started successfully!");
-  } catch (error: any) {
-    console.error("❌ Failed to start background jobs:", error.message);
-  }
-};
+//     // console.log("✅ Background jobs started successfully!");
+//   } catch (error: any) {
+//     console.error("❌ Failed to start background jobs:", error.message);
+//   }
+// };
 
 // ---------------- SERVER STARTUP ----------------
 const startServer = async () => {
@@ -254,10 +255,11 @@ const startServer = async () => {
     console.log("✅ MongoDB connected successfully!");
 
     // Start Express server
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
       console.log(`🚀 Server started on port: ${PORT}`);
-      console.log("⏳ Starting background services...");
-      startBackgroundJobs(); // Start after server is running
+      // console.log("⏳ Starting background services...");
+      // startBackgroundJobs(); // Start after server is running
+      // await startIMAPConnections();
     });
   } catch (error: any) {
     console.error("❌ Failed to start server:", error.message);

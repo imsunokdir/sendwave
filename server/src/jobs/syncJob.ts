@@ -1,6 +1,5 @@
-import { fetchEmailsSinceDays } from "../services/fetchEmails";
 import { EmailAccount } from "../models/emailAccounts.model";
-import { indexEmail } from "../services/elasticSearch";
+import { fetchEmailsAndIndex } from "../services/fetchEmails";
 
 export const startSyncJob = async (
   account: any,
@@ -17,33 +16,11 @@ export const startSyncJob = async (
         progress: 0,
       });
 
-      let totalEmails = 0;
-      let processed = 0;
-
-      // Count total emails across all folders
       for (const folder of folders) {
-        const mails = await fetchEmailsSinceDays(account, days, folder);
-        totalEmails += mails.length;
+        await fetchEmailsAndIndex(account, days, folder);
       }
 
-      if (totalEmails === 0) {
-        console.log(`⚠ No emails found for ${account.email}`);
-      }
-
-      // Fetch & index each folder
-      for (const folder of folders) {
-        const emails = await fetchEmailsSinceDays(account, days, folder);
-
-        for (const mail of emails) {
-          await indexEmail(account._id.toString(), mail, folder);
-
-          processed++;
-          const progress = Math.round((processed / totalEmails) * 100);
-
-          await EmailAccount.findByIdAndUpdate(account._id, { progress });
-        }
-      }
-
+      // Mark sync as complete
       await EmailAccount.findByIdAndUpdate(account._id, {
         syncStatus: "idle",
         initialSyncCompleted: true,
@@ -53,7 +30,6 @@ export const startSyncJob = async (
       console.log(`✅ Sync completed: ${account.email}`);
     } catch (err: any) {
       console.error("❌ Sync Error:", err.message);
-
       await EmailAccount.findByIdAndUpdate(account._id, {
         syncStatus: "error",
         errorMessage: err.message,

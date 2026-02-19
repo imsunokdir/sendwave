@@ -1,8 +1,9 @@
 import express from "express";
-import { testMe } from "../controller/test.controller"; // correct path to controller
+import { fixNullCategories, testMe } from "../controller/test.controller"; // correct path to controller
 
 const testRouter = express.Router();
 
 testRouter.get("/me", testMe);
+testRouter.post("/fix", fixNullCategories);
 
 export default testRouter;

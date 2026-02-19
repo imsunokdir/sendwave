@@ -12,6 +12,9 @@ import nodemailer from "nodemailer";
 import { generateRAGRepliesGemini } from "../ai/ragReplies";
 import { ai } from "src/ai/gemini";
 import { generateRAGRepliesOllama } from "../ai/ollamaSuggestedReplies";
+import { EmailAccount } from "../models/emailAccounts.model";
+import { client } from "../config/algoliaClient";
+import { batchCategorizeEmails } from "../ai/batchCatgegorize";
 
 type EmailsResponse = {
   emails: EmailType[];
@@ -36,7 +39,7 @@ export const searchEmailsC = async (req: Request, res: Response) => {
       account,
       folder,
       page ? parseInt(page) : 1,
-      limit ? parseInt(limit) : 10
+      limit ? parseInt(limit) : 10,
     );
     res.json({ results });
   } catch (error) {
@@ -131,7 +134,7 @@ export const getAllEmailsController = async (req: Request, res: Response) => {
         folder,
         page ? parseInt(page) : 1,
         limit ? parseInt(limit) : 10,
-        category
+        category,
       );
     } else {
       // Otherwise fetch all emails normally
@@ -140,7 +143,7 @@ export const getAllEmailsController = async (req: Request, res: Response) => {
         folder,
         page ? parseInt(page) : 1,
         limit ? parseInt(limit) : 10,
-        category
+        category,
       );
     }
 
@@ -148,6 +151,114 @@ export const getAllEmailsController = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Failed to fetch emails:", error.message);
     res.status(500).json({ error: "Failed to fetch emails" });
+  }
+};
+
+// export const getEmailsAlgolia = async (req: Request, res: Response) => {
+//   try {
+//     const userEmail = req.user?.email;
+//     if (!userEmail) return res.status(401).json({ message: "Unauthorized" });
+
+//     const folder = req.params.folder;
+//     const hitsPerPage = Number(req.query.limit) || 50;
+
+//     const result = await client.search({
+//       requests: [
+//         {
+//           indexName: "emails",
+//           query: "", // empty = fetch all emails
+//           filters: `email:"${userEmail}" AND folder:"${folder}"`,
+//           hitsPerPage,
+//         },
+//       ],
+//     });
+
+//     res.json({ success: true, result });
+//   } catch (err: any) {
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
+
+export const getEmailsAlgolia = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const folder = req.params.folder; // required
+    const hitsPerPage = Number(req.query.limit) || 50;
+
+    // Optional: array of email accounts to filter
+    const selectedEmails = req.query.emails
+      ? (req.query.emails as string).split(",").map((e) => e.trim())
+      : [];
+
+    // Build filters
+    let filters = `user:"${userId}" AND folder:"${folder}"`;
+
+    if (selectedEmails.length > 0) {
+      // If specific email accounts selected, filter by them
+      const emailFilters = selectedEmails
+        .map((e) => `email:"${e}"`)
+        .join(" OR ");
+      filters += ` AND (${emailFilters})`;
+    }
+
+    const result = await client.search({
+      requests: [
+        {
+          indexName: "emails",
+          query: "", // empty = fetch all matching emails
+          // filters,
+          hitsPerPage,
+        },
+      ],
+    });
+
+    res.json({ success: true, result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const searchEmailAlgolia = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const q = (req.params.query || "").trim(); // free text search
+    const folder = req.query.folder as string; // optional folder
+    const selectedEmails = req.query.emails
+      ? (req.query.emails as string).split(",").map((e) => e.trim())
+      : [];
+    const hitsPerPage = Number(req.query.limit) || 50;
+
+    // Base filter: current user
+    let filters = `user:"${userId}"`;
+
+    if (folder) filters += ` AND folder:"${folder}"`;
+
+    if (selectedEmails.length > 0) {
+      const emailFilters = selectedEmails
+        .map((e) => `email:"${e}"`)
+        .join(" OR ");
+      filters += ` AND (${emailFilters})`;
+    }
+
+    // Algolia search
+    const result = await client.search({
+      requests: [
+        {
+          indexName: "emails",
+          query: q, // empty = return all emails
+          filters,
+          hitsPerPage,
+        },
+      ],
+    });
+
+    res.json({ success: true, result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -178,7 +289,7 @@ export const reCatgorizeEmails = async (req: Request, res: Response) => {
 
 export const getSuggestedRepliesController = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   try {
     const { emailId } = req.body;
@@ -209,6 +320,25 @@ export const getSuggestedRepliesController = async (
       error: "Failed to generate suggested replies",
       message: error.message,
     });
+  }
+};
+
+export const getUserEmailAccounts = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    // only return _id and email
+    const accounts = await EmailAccount.find({ user: userId }).select(
+      "_id email",
+    );
+
+    return res.json({ accounts });
+  } catch (err: any) {
+    console.error("Error fetching user email accounts:", err.message);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -271,3 +401,40 @@ export const getSuggestedRepliesController = async (
 // export const getAllEmailAccounts = async (req: Request, res: Response) => {
 //   res.json({ message: "hey from server" });
 // };
+
+export const fetchAndCategorizeEmails = async () => {
+  let page = 0;
+  const hitsPerPage = 100;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { hits, nbPages } = await client.searchSingleIndex({
+      indexName: "emails",
+      searchParams: {
+        query: "",
+        filters: "category:Uncategorized",
+        hitsPerPage,
+        page,
+      },
+    });
+
+    if (hits.length === 0 || page >= (nbPages ?? 1) - 1) {
+      hasMore = false;
+    }
+
+    const emails = hits.map((hit: any) => ({
+      id: hit.objectID,
+      text: `Subject: ${hit.subject}\nFrom: ${hit.from}\n\n${hit.text}`,
+    }));
+
+    console.log(`Processing page ${page + 1} of ${nbPages}...`);
+    await batchCategorizeEmails(emails);
+
+    page++;
+
+    // Breathing room between pages
+    if (hasMore) await new Promise((res) => setTimeout(res, 1000));
+  }
+
+  console.log("Fetching and categorization complete!");
+};

@@ -13,7 +13,7 @@ export const getAllEmailAccounts = async (req: Request, res: Response) => {
       },
     });
 
-    console.log("acc res:", result);
+    // console.log("acc res:", result);
 
     const accounts = (
       (result.aggregations as any)?.accounts?.buckets || []

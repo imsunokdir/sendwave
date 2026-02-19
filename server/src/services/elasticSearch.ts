@@ -103,11 +103,52 @@ export const elasticClient = new Client({
 //   return result.hits.hits.map((hit) => hit._source);
 // };
 
+// export const indexEmail = async (
+//   accountId: string,
+//   msg: any,
+//   folder: string = "INBOX",
+//   emailAddress?: string
+// ) => {
+//   try {
+//     const parsed = await simpleParser(msg.source);
+
+//     const doc = {
+//       accountId,
+//       email: emailAddress ?? "",
+//       folder,
+
+//       subject: msg.envelope?.subject || "(No Subject)",
+//       from: msg.envelope?.from?.map((f: any) => f.address).join(", ") || "",
+//       to: msg.envelope?.to?.map((t: any) => t.address).join(", ") || "",
+
+//       date: msg.envelope?.date,
+//       flags: msg.flags || [],
+
+//       text: parsed.text || "",
+//       html: parsed.html || "",
+//       snippet: parsed.text?.slice(0, 200) ?? "",
+//       category: "Uncategorized", // default for now
+//     };
+
+//     await elasticClient.index({
+//       index: "emails",
+//       id: `${accountId}-${folder}-${msg.uid}`,
+//       document: doc,
+//     });
+
+//     console.log(
+//       `Indexed: UID ${msg.uid} | Folder: ${folder} | Account: ${accountId}`
+//     );
+//   } catch (err) {
+//     console.error("Error indexing email:", err);
+//   }
+// };
+
 export const indexEmail = async (
   accountId: string,
   msg: any,
   folder: string = "INBOX",
-  emailAddress?: string
+  emailAddress?: string,
 ) => {
   try {
     const parsed = await simpleParser(msg.source);
@@ -116,6 +157,8 @@ export const indexEmail = async (
       accountId,
       email: emailAddress ?? "",
       folder,
+
+      uid: msg.uid, // <-- NEW IMPORTANT LINE
 
       subject: msg.envelope?.subject || "(No Subject)",
       from: msg.envelope?.from?.map((f: any) => f.address).join(", ") || "",
@@ -127,7 +170,7 @@ export const indexEmail = async (
       text: parsed.text || "",
       html: parsed.html || "",
       snippet: parsed.text?.slice(0, 200) ?? "",
-      category: "Uncategorized", // default for now
+      category: "Uncategorized",
     };
 
     await elasticClient.index({
@@ -137,7 +180,7 @@ export const indexEmail = async (
     });
 
     console.log(
-      `Indexed: UID ${msg.uid} | Folder: ${folder} | Account: ${accountId}`
+      `Indexed: UID ${msg.uid} | Folder: ${folder} | Account: ${accountId}`,
     );
   } catch (err) {
     console.error("Error indexing email:", err);
@@ -150,7 +193,7 @@ export const searchEmails = async (
   folder?: string,
   page: number = 1,
   limit: number = 10,
-  category?: string
+  category?: string,
 ): Promise<{
   emails: EmailType[];
   page: number;
@@ -206,7 +249,7 @@ export const getAllEmails = async (
   folder?: string,
   page: number = 1,
   limit: number = 10,
-  category?: string
+  category?: string,
 ) => {
   const from = (page - 1) * limit;
   // console.log("account all mails:*********************", account);

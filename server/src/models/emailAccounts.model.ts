@@ -12,7 +12,7 @@ export interface IEmailAccount extends Document {
   imapTLS: boolean;
 
   // Sync Info
-  lastSyncedUID?: number;
+  lastSyncedUID: Map<string, number>;
   lastSyncedDate?: Date;
   initialSyncCompleted: boolean;
 
@@ -35,7 +35,11 @@ const emailAccountSchema = new Schema<IEmailAccount>(
     imapPort: { type: Number, required: true },
     imapTLS: { type: Boolean, required: true },
 
-    lastSyncedUID: { type: Number },
+    lastSyncedUID: {
+      type: Map,
+      of: Number,
+      default: {},
+    },
     lastSyncedDate: { type: Date },
 
     initialSyncCompleted: { type: Boolean, default: false },
