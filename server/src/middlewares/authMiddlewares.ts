@@ -4,24 +4,21 @@ import { verifyAccessToken } from "../utility/jwt";
 export const authMiddleware = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
+    // Try cookie first, fallback to Authorization header
+    const token =
+      req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
 
-    // Bearer <token>
-    const token = authHeader.split(" ")[1];
     if (!token) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     const decoded = verifyAccessToken(token) as any;
-    req.user = { id: decoded.id, email: decoded.email }; // attach user info
+    req.user = { id: decoded.id, email: decoded.email };
 
-    next(); // pass control to the next middleware or route handler
+    next();
   } catch (err) {
     res
       .status(401)

@@ -1,10 +1,11 @@
 import { EmailAccount } from "../models/emailAccounts.model";
 import { fetchEmailsAndIndex } from "../services/fetchEmails";
+import { getLatestUID } from "../utility/imapConnect";
 
 export const startSyncJob = async (
   account: any,
   days: number,
-  folders: string[] = ["INBOX"]
+  folders: string[] = ["INBOX"],
 ) => {
   console.log(`🚀 Starting sync for ${account.email}`);
 
@@ -17,13 +18,22 @@ export const startSyncJob = async (
       });
 
       for (const folder of folders) {
-        await fetchEmailsAndIndex(account, days, folder);
+        await fetchEmailsAndIndex(account, folder, "historical", days);
       }
 
-      // Mark sync as complete
+      // Re-bookmark to current latest UID after historical sync
+      const freshAccount = await EmailAccount.findById(account._id);
+
+      for (const folder of folders) {
+        const currentLatestUID = await getLatestUID(account, folder);
+        freshAccount!.lastSyncedUID.set(folder, currentLatestUID);
+        console.log(`📌 Bookmarked ${folder} at UID ${currentLatestUID}`);
+      }
+
       await EmailAccount.findByIdAndUpdate(account._id, {
         syncStatus: "idle",
         initialSyncCompleted: true,
+        lastSyncedUID: freshAccount!.lastSyncedUID,
         progress: 100,
       });
 

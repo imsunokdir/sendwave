@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { fetchEmails } from "../services/emailService";
-// import type { EmailType } from "../types/emailType";
+import type { EmailType } from "../types/emailType";
 
 type Params = {
   account: string | "all";
@@ -8,21 +8,16 @@ type Params = {
   page: number;
   limit: number;
   query?: string;
-  category?: string; // ✅ new category param
+  category?: string;
 };
 
-// type EmailsResponse = {
-//   results: {
-//     emails: EmailType[];
-//     page: number;
-//     limit: number;
-//     total: number;
-//     totalPages: number;
-//   };
-// };
+type EmailsResponse = {
+  emails: EmailType[];
+  total: number;
+};
 
 export const useEmails = (params: Params) => {
-  return useQuery({
+  return useQuery<EmailsResponse>({
     queryKey: ["emails", params],
     queryFn: () =>
       fetchEmails(
@@ -31,8 +26,8 @@ export const useEmails = (params: Params) => {
         params.page,
         params.limit,
         params.query,
-        params.category // ✅ pass category to fetch function
+        params.category,
       ),
-    placeholderData: keepPreviousData, // ⭐ smooth transitions
+    placeholderData: keepPreviousData,
   });
 };

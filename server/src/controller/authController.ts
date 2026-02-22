@@ -21,7 +21,14 @@ export const loginUser = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     const data = await loginService(email, password);
-    res.json({ success: true, ...data });
+
+    res.cookie("accessToken", data.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+    res.json({ success: true, user: data.user });
   } catch (err: any) {
     res.status(400).json({ success: false, message: err.message });
   }
@@ -39,19 +46,27 @@ export const refreshTokenController = async (req: Request, res: Response) => {
 
 export const logoutUser = async (req: Request, res: Response) => {
   try {
-    if (!req.user)
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+    res.clearCookie("accessToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+    res.status(200).json({ success: true, message: "Logged out successfully" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
 
-    const user = await User.findById(req.user.id);
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    const user = await User.findById(req.user?.id).select(
+      "-password -refreshToken",
+    );
     if (!user)
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
-
-    user.refreshToken = null;
-    await user.save();
-
-    res.status(200).json({ success: true, message: "Logged out successfully" });
+    res.status(200).json({ success: true, user });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }

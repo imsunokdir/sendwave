@@ -2,15 +2,39 @@ import axios from "axios";
 import type { EmailType } from "../types/emailType";
 import { api } from "./api";
 
+// export const fetchEmails = async (
+//   account?: string,
+//   folder?: string,
+//   page = 1,
+//   limit = 10,
+//   query?: string,
+//   category?: string
+// ) => {
+//   const res = await api.get("/emails/all", {
+//     params: {
+//       account: account !== "all" ? account : undefined,
+//       folder: folder !== "all" ? folder : undefined,
+//       page,
+//       limit,
+//       query: query?.trim() ? query : undefined,
+//       category: category !== "all" ? category : undefined,
+//     },
+//   });
+
+//   console.log("res from server:", res.data.results);
+
+//   return res.data.results;
+// };
+
 export const fetchEmails = async (
   account?: string,
   folder?: string,
   page = 1,
   limit = 10,
   query?: string,
-  category?: string
+  category?: string,
 ) => {
-  const res = await api.get("/emails/all", {
+  const res = await api.get("/emails/search", {
     params: {
       account: account !== "all" ? account : undefined,
       folder: folder !== "all" ? folder : undefined,
@@ -21,9 +45,7 @@ export const fetchEmails = async (
     },
   });
 
-  console.log("res from server:", res.data.results);
-
-  return res.data.results;
+  return { emails: res.data.emails, total: res.data.total };
 };
 
 export const fetchEmailById = async (id: string) => {
@@ -34,7 +56,7 @@ export const fetchEmailById = async (id: string) => {
 
 export const fetchSuggestedReplies = async (
   emailId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<string[]> => {
   try {
     const res = await api.post(
@@ -42,7 +64,7 @@ export const fetchSuggestedReplies = async (
       { emailId },
       {
         signal,
-      }
+      },
     );
 
     console.log("res replies:", res.data.suggestedReplies);
@@ -86,13 +108,32 @@ export const fetchSuggestedReplies = async (
 //   }
 // };
 
-export const fetchAllEmailAccounts = async (): Promise<string[]> => {
+export const fetchAllEmailAccounts = async () => {
   try {
-    const res = await api.get("/accounts/get-all-accounts");
-    // console.log("accounts:", res.data);
+    const res = await api.get("/emails/get-all-accounts");
     return res.data.accounts || [];
   } catch (error) {
     console.error("Failed to fetch email accounts:", error);
     return [];
   }
+};
+
+export const addEmailAccountService = async (data: any) => {
+  const res = await api.post("/emails/add", data);
+  return res.data;
+};
+
+export const deleteEmailAccountService = async (accountId: string) => {
+  const res = await api.delete(`/emails/${accountId}`);
+  return res.data;
+};
+
+export const toggleSyncService = async (accountId: string) => {
+  const res = await api.patch(`/emails/${accountId}/toggle-sync`);
+  return res.data;
+};
+
+export const toggleNotificationsService = async (accountId: string) => {
+  const res = await api.patch(`/emails/${accountId}/toggle-notifications`);
+  return res.data;
 };

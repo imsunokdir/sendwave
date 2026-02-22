@@ -15,6 +15,8 @@ export interface IEmailAccount extends Document {
   lastSyncedUID: Map<string, number>;
   lastSyncedDate?: Date;
   initialSyncCompleted: boolean;
+  isActive: boolean;
+  notificationsEnabled: boolean;
 
   syncStatus: "idle" | "syncing" | "error";
 
@@ -55,13 +57,15 @@ const emailAccountSchema = new Schema<IEmailAccount>(
       min: 0,
       max: 100,
     },
+    isActive: { type: Boolean, default: false },
+    notificationsEnabled: { type: Boolean, default: false },
 
     errorMessage: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export const EmailAccount = model<IEmailAccount>(
   "EmailAccount",
-  emailAccountSchema
+  emailAccountSchema,
 );

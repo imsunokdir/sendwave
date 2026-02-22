@@ -11,23 +11,36 @@ import {
   fetchAndCategorizeEmails,
 } from "../controller/email.controller";
 import { authMiddleware } from "../middlewares/authMiddlewares";
-import { addEmailAccount } from "../controller/emailAccController";
+import {
+  addEmailAccount,
+  deleteEmailAccount,
+  toggleCronAcc,
+  toggleNotification,
+} from "../controller/emailAccController";
+import cors from "cors";
+
 const emailRouter = express.Router();
 
 emailRouter.get("/all", getAllEmailsController);
-// emailRouter.get("/search", searchEmailsC);
 emailRouter.post("/recategorize", reCatgorizeEmails);
 emailRouter.post("/get-by-id", getEmailByIdController);
 emailRouter.post("/suggested-replies", getSuggestedRepliesController);
 emailRouter.get("/get-all-accounts", authMiddleware, getUserEmailAccounts);
 emailRouter.post("/add", authMiddleware, addEmailAccount);
+emailRouter.get("/search", authMiddleware, searchEmailAlgolia);
 
-//algolia routes
-// ----------------- Get emails by folder -----------------
-emailRouter.get("/:folder", authMiddleware, getEmailsAlgolia);
-// ----------------- Search emails -----------------
-emailRouter.get("/search/:query", authMiddleware, searchEmailAlgolia);
-// ----------------- Batch categorize emails -----------------
+//PATCH and DELETE
+emailRouter.patch(
+  "/:accountId/toggle-notifications",
+  authMiddleware,
+  toggleNotification,
+);
+emailRouter.patch("/:accountId/toggle-sync", authMiddleware, toggleCronAcc);
+
+emailRouter.delete("/:accountId", authMiddleware, deleteEmailAccount);
 emailRouter.post("/categorize/batch", authMiddleware, fetchAndCategorizeEmails);
+
+// /:folder last since it matches anything
+emailRouter.get("/:folder", authMiddleware, getEmailsAlgolia);
 
 export default emailRouter;

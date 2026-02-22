@@ -1,0 +1,1365 @@
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  Power,
+  Mail,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Users,
+  Send,
+  MessageSquare,
+  Zap,
+  Pencil,
+  Check,
+  X,
+  Plus,
+  Trash2,
+  Brain,
+} from "lucide-react";
+import {
+  getCampaignService,
+  setCampaignStatusService,
+  updateCampaignService,
+  uploadLeadsService,
+  getCampaignContextService,
+  saveCampaignContextService,
+  deleteCampaignContextService,
+} from "../services/campaignService";
+import type {
+  Campaign,
+  Lead,
+  CampaignContextItem,
+} from "../services/campaignService";
+import StepBuilder from "../component/campaign/StepBuilder";
+import SchedulePicker from "../component/campaign/SchedulePicker";
+import LeadUploader from "../component/campaign/LeadUploader";
+import SmartReplyPanel from "../component/campaign/SmartReplyPanel";
+import LeadThreadPanel from "../component/campaign/LeadThreadPanel";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const statusStyle: Record<
+  string,
+  { bg: string; color: string; label: string }
+> = {
+  active: { bg: "#dcfce7", color: "#16a34a", label: "Active" },
+  paused: { bg: "#fef9c3", color: "#ca8a04", label: "Paused" },
+  draft: { bg: "#f3f4f6", color: "#6b7280", label: "Draft" },
+  completed: { bg: "#eff6ff", color: "#3b82f6", label: "Completed" },
+};
+
+const leadStatusIcon: Record<string, React.ReactNode> = {
+  pending: <Clock size={13} color="#9ca3af" />,
+  contacted: <Send size={13} color="#6366f1" />,
+  replied: <CheckCircle size={13} color="#22c55e" />,
+  "opted-out": <XCircle size={13} color="#f59e0b" />,
+  failed: <AlertCircle size={13} color="#ef4444" />,
+};
+
+const leadStatusColor: Record<string, string> = {
+  pending: "#9ca3af",
+  contacted: "#6366f1",
+  replied: "#22c55e",
+  "opted-out": "#f59e0b",
+  failed: "#ef4444",
+};
+
+const formatDate = (date?: string) => {
+  if (!date) return "—";
+  return new Date(date).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+// ─── Stat card ────────────────────────────────────────────────────────────────
+function StatCard({
+  icon,
+  label,
+  value,
+  color = "#6366f1",
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  color?: string;
+}) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #e5e7eb",
+        borderRadius: 12,
+        padding: "14px 16px",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        boxShadow: "0 1px 3px rgba(0,0,0,.04)",
+      }}
+    >
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: `${color}15`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          color,
+        }}
+      >
+        {icon}
+      </div>
+      <div>
+        <div
+          style={{
+            fontSize: 22,
+            fontWeight: 700,
+            color: "#111827",
+            lineHeight: 1,
+          }}
+        >
+          {value}
+        </div>
+        <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 3 }}>
+          {label}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "9px 12px",
+  border: "1px solid #e5e7eb",
+  borderRadius: 9,
+  fontSize: 13,
+  color: "#111827",
+  background: "#f9fafb",
+  outline: "none",
+  fontFamily: "inherit",
+  boxSizing: "border-box",
+  transition: "border-color .15s",
+};
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+export default function CampaignDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [threadLead, setThreadLead] = useState<string | null>(null);
+
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
+  const [error, setError] = useState("");
+  const [leadFilter, setLeadFilter] = useState("all");
+
+  // ── Edit campaign details ──────────────────────────────────────────────────
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editSteps, setEditSteps] = useState<Campaign["steps"]>([]);
+  const [editSchedule, setEditSchedule] = useState<Campaign["schedule"]>({
+    timezone: "UTC",
+    sendHour: 9,
+    sendMinute: 0,
+    sendDays: [1, 2, 3, 4, 5],
+  });
+  const [savingDetails, setSavingDetails] = useState(false);
+
+  // ── Context ────────────────────────────────────────────────────────────────
+  const [contextItems, setContextItems] = useState<CampaignContextItem[]>([]);
+  const [contextLoading, setContextLoading] = useState(true);
+  const [contextText, setContextText] = useState("");
+  const [savingContext, setSavingContext] = useState(false);
+  const [deletingCtx, setDeletingCtx] = useState<string | null>(null);
+
+  // ── Add leads ──────────────────────────────────────────────────────────────
+  const [showAddLeads, setShowAddLeads] = useState(false);
+  const [leadsRaw, setLeadsRaw] = useState("");
+  const [leadsType, setLeadsType] = useState<"raw" | "csv">("raw");
+  const [leadCount, setLeadCount] = useState(0);
+  const [uploadingLeads, setUploadingLeads] = useState(false);
+  const [leadsResult, setLeadsResult] = useState<{
+    added: number;
+    skipped: number;
+  } | null>(null);
+
+  // ── Load ───────────────────────────────────────────────────────────────────
+  const load = async () => {
+    try {
+      const data = await getCampaignService(id!);
+      setCampaign(data);
+      setEditName(data.name);
+      setEditSteps(data.steps);
+      setEditSchedule(data.schedule);
+    } catch {
+      setError("Failed to load campaign.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadContext = async () => {
+    setContextLoading(true);
+    try {
+      const data = await getCampaignContextService(id!);
+      setContextItems(data);
+    } catch {
+      // fail silently
+    } finally {
+      setContextLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    loadContext();
+  }, [id]);
+
+  // ── Toggle status ──────────────────────────────────────────────────────────
+  const handleToggle = async () => {
+    if (!campaign) return;
+    setToggling(true);
+    try {
+      const next =
+        campaign.status === "active"
+          ? "paused"
+          : campaign.status === "paused"
+            ? "active"
+            : "active";
+      const updated = await setCampaignStatusService(campaign._id, next);
+      setCampaign(updated);
+    } catch {
+      setError("Failed to update status.");
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  // ── Save details ───────────────────────────────────────────────────────────
+  const handleSaveDetails = async () => {
+    if (!campaign) return;
+    setSavingDetails(true);
+    try {
+      const updated = await updateCampaignService(campaign._id, {
+        name: editName,
+        steps: editSteps,
+        schedule: editSchedule,
+      });
+      setCampaign(updated);
+      setEditingDetails(false);
+    } catch {
+      setError("Failed to save changes.");
+    } finally {
+      setSavingDetails(false);
+    }
+  };
+
+  // ── Context actions ────────────────────────────────────────────────────────
+  const handleAddContext = async () => {
+    const trimmed = contextText.trim();
+    if (!trimmed) return;
+    setSavingContext(true);
+    try {
+      await saveCampaignContextService(id!, trimmed);
+      setContextText("");
+      await loadContext();
+    } catch {
+      setError("Failed to save context.");
+    } finally {
+      setSavingContext(false);
+    }
+  };
+
+  const handleDeleteContext = async (ctxId: string) => {
+    setDeletingCtx(ctxId);
+    try {
+      await deleteCampaignContextService(id!, ctxId);
+      setContextItems((p) => p.filter((c) => c._id !== ctxId));
+    } catch {
+      setError("Failed to delete context.");
+    } finally {
+      setDeletingCtx(null);
+    }
+  };
+
+  // ── Add leads ──────────────────────────────────────────────────────────────
+  const handleLeadsParsed = (raw: string, type: "raw" | "csv") => {
+    setLeadsRaw(raw);
+    setLeadsType(type);
+    const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+    const matches = raw.match(emailRegex) ?? [];
+    setLeadCount([...new Set(matches)].length);
+  };
+
+  const handleUploadLeads = async () => {
+    if (!leadsRaw) return;
+    setUploadingLeads(true);
+    try {
+      const result = await uploadLeadsService(id!, {
+        [leadsType === "csv" ? "csv" : "raw"]: leadsRaw,
+      });
+      setLeadsResult(result);
+      setLeadsRaw("");
+      setLeadCount(0);
+      await load(); // refresh to show updated lead count
+    } catch {
+      setError("Failed to upload leads.");
+    } finally {
+      setUploadingLeads(false);
+    }
+  };
+
+  // ── Loading/error states ───────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #f0f4ff 0%, #f9fafb 60%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "'DM Sans', sans-serif",
+        }}
+      >
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            border: "3px solid #e5e7eb",
+            borderTopColor: "#6366f1",
+            borderRadius: "50%",
+            animation: "spin .7s linear infinite",
+          }}
+        />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (error || !campaign) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #f0f4ff 0%, #f9fafb 60%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "'DM Sans', sans-serif",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <p style={{ color: "#ef4444", marginBottom: 12 }}>
+            {error || "Campaign not found"}
+          </p>
+          <button
+            onClick={() => navigate("/hub")}
+            style={{
+              padding: "8px 16px",
+              background: "#6366f1",
+              color: "#fff",
+              border: "none",
+              borderRadius: 9,
+              cursor: "pointer",
+              fontSize: 13,
+            }}
+          >
+            Back to Hub
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const s = statusStyle[campaign.status] ?? statusStyle.draft;
+  const leads = campaign.leads ?? [];
+  const filteredLeads =
+    leadFilter === "all" ? leads : leads.filter((l) => l.status === leadFilter);
+  const replyRate =
+    campaign.stats.sent > 0
+      ? Math.round((campaign.stats.replied / campaign.stats.sent) * 100)
+      : 0;
+
+  return (
+    <>
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #f0f4ff 0%, #f9fafb 60%)",
+          padding: "40px 16px",
+          fontFamily: "'DM Sans', sans-serif",
+        }}
+      >
+        <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
+
+        <div style={{ maxWidth: 700, margin: "0 auto" }}>
+          {/* ── Back ── */}
+          <button
+            onClick={() => navigate("/hub")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              marginBottom: 20,
+              background: "none",
+              border: "none",
+              color: "#9ca3af",
+              fontSize: 13,
+              cursor: "pointer",
+              padding: 0,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#6366f1")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#9ca3af")}
+          >
+            <ArrowLeft size={14} /> Back to Hub
+          </button>
+
+          {/* ── Header ── */}
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 14,
+              padding: "18px 20px",
+              marginBottom: 12,
+              boxShadow: "0 1px 3px rgba(0,0,0,.05)",
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 4,
+                }}
+              >
+                <h1
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: "#111827",
+                    margin: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {campaign.name}
+                </h1>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: "3px 9px",
+                    borderRadius: 99,
+                    background: s.bg,
+                    color: s.color,
+                    flexShrink: 0,
+                  }}
+                >
+                  {s.label}
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
+                {campaign.steps.length} step
+                {campaign.steps.length !== 1 ? "s" : ""} ·{" "}
+                {campaign.schedule.sendDays.length} send day
+                {campaign.schedule.sendDays.length !== 1 ? "s" : ""} ·{" "}
+                {campaign.schedule.sendHour}:00 UTC
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <button
+                onClick={() => setEditingDetails(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "8px 13px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 9,
+                  background: "#f9fafb",
+                  color: "#6b7280",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "all .15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#6366f1";
+                  e.currentTarget.style.color = "#6366f1";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#e5e7eb";
+                  e.currentTarget.style.color = "#6b7280";
+                }}
+              >
+                <Pencil size={12} /> Edit
+              </button>
+              {campaign.status !== "completed" && (
+                <button
+                  onClick={handleToggle}
+                  disabled={toggling}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 14px",
+                    border: "none",
+                    borderRadius: 9,
+                    background:
+                      campaign.status === "active" ? "#fef9c3" : "#6366f1",
+                    color: campaign.status === "active" ? "#ca8a04" : "#fff",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: toggling ? "default" : "pointer",
+                    transition: "all .15s",
+                  }}
+                >
+                  {toggling ? (
+                    <div
+                      style={{
+                        width: 12,
+                        height: 12,
+                        border: "2px solid currentColor",
+                        borderTopColor: "transparent",
+                        borderRadius: "50%",
+                        animation: "spin .7s linear infinite",
+                      }}
+                    />
+                  ) : (
+                    <Power size={12} />
+                  )}
+                  {campaign.status === "active"
+                    ? "Pause"
+                    : campaign.status === "paused"
+                      ? "Resume"
+                      : "Launch"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ── Edit details panel ── */}
+          {editingDetails && (
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #6366f1",
+                borderRadius: 14,
+                padding: "18px 20px",
+                marginBottom: 12,
+                boxShadow: "0 1px 3px rgba(0,0,0,.05)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 16,
+                }}
+              >
+                <span
+                  style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}
+                >
+                  Edit campaign
+                </span>
+                <button
+                  onClick={() => setEditingDetails(false)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#9ca3af",
+                    display: "flex",
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Name */}
+              <div style={{ marginBottom: 14 }}>
+                <label
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#9ca3af",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
+                  Campaign name
+                </label>
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  style={inputStyle}
+                  onFocus={(e) =>
+                    (e.currentTarget.style.borderColor = "#6366f1")
+                  }
+                  onBlur={(e) =>
+                    (e.currentTarget.style.borderColor = "#e5e7eb")
+                  }
+                />
+              </div>
+
+              {/* Schedule */}
+              <div style={{ marginBottom: 14 }}>
+                <label
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#9ca3af",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    display: "block",
+                    marginBottom: 10,
+                  }}
+                >
+                  Schedule
+                </label>
+                <SchedulePicker
+                  schedule={editSchedule}
+                  onChange={setEditSchedule}
+                />
+              </div>
+
+              {/* Steps */}
+              <div style={{ marginBottom: 16 }}>
+                <label
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#9ca3af",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    display: "block",
+                    marginBottom: 10,
+                  }}
+                >
+                  Sequence
+                </label>
+                <StepBuilder steps={editSteps} onChange={setEditSteps} />
+              </div>
+
+              {/* Save */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={handleSaveDetails}
+                  disabled={savingDetails || !editName.trim()}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "9px 18px",
+                    background: savingDetails ? "#e5e7eb" : "#6366f1",
+                    color: savingDetails ? "#9ca3af" : "#fff",
+                    border: "none",
+                    borderRadius: 9,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: savingDetails ? "default" : "pointer",
+                  }}
+                >
+                  {savingDetails ? (
+                    <>
+                      <div
+                        style={{
+                          width: 13,
+                          height: 13,
+                          border: "2px solid #a5b4fc",
+                          borderTopColor: "#fff",
+                          borderRadius: "50%",
+                          animation: "spin .7s linear infinite",
+                        }}
+                      />{" "}
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Check size={13} /> Save changes
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setEditingDetails(false)}
+                  style={{
+                    padding: "9px 16px",
+                    background: "#f3f4f6",
+                    color: "#6b7280",
+                    border: "none",
+                    borderRadius: 9,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Stats ── */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr 1fr",
+              gap: 10,
+              marginBottom: 12,
+            }}
+          >
+            <StatCard
+              icon={<Users size={16} />}
+              label="Total leads"
+              value={campaign.stats.totalLeads}
+              color="#6366f1"
+            />
+            <StatCard
+              icon={<Send size={16} />}
+              label="Sent"
+              value={campaign.stats.sent}
+              color="#3b82f6"
+            />
+            <StatCard
+              icon={<MessageSquare size={16} />}
+              label="Replies"
+              value={campaign.stats.replied}
+              color="#22c55e"
+            />
+            <StatCard
+              icon={<Zap size={16} />}
+              label="Reply rate"
+              value={replyRate}
+              color="#f59e0b"
+            />
+          </div>
+
+          {/* ── Context ── */}
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 14,
+              overflow: "hidden",
+              marginBottom: 12,
+              boxShadow: "0 1px 3px rgba(0,0,0,.05)",
+            }}
+          >
+            <div
+              style={{
+                padding: "12px 18px",
+                borderBottom: "1px solid #f3f4f6",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <Brain size={13} color="#6366f1" />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                AI Context
+              </span>
+              <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                ({contextItems.length})
+              </span>
+            </div>
+
+            <div
+              style={{
+                padding: "14px 18px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              {/* Add context input */}
+              <textarea
+                value={contextText}
+                onChange={(e) => setContextText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
+                    handleAddContext();
+                }}
+                placeholder="Add context for AI replies e.g. booking link, pricing, key points..."
+                rows={2}
+                style={{ ...inputStyle, resize: "none", lineHeight: 1.6 }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#6366f1")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#e5e7eb")}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                  ⌘ + Enter to add
+                </span>
+                <button
+                  onClick={handleAddContext}
+                  disabled={!contextText.trim() || savingContext}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "7px 14px",
+                    background:
+                      contextText.trim() && !savingContext
+                        ? "#6366f1"
+                        : "#e5e7eb",
+                    color:
+                      contextText.trim() && !savingContext ? "#fff" : "#9ca3af",
+                    border: "none",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    cursor:
+                      contextText.trim() && !savingContext
+                        ? "pointer"
+                        : "default",
+                  }}
+                >
+                  {savingContext ? (
+                    <div
+                      style={{
+                        width: 12,
+                        height: 12,
+                        border: "2px solid #a5b4fc",
+                        borderTopColor: "#fff",
+                        borderRadius: "50%",
+                        animation: "spin .7s linear infinite",
+                      }}
+                    />
+                  ) : (
+                    <Plus size={12} />
+                  )}
+                  Add
+                </button>
+              </div>
+
+              {/* Context list */}
+              {contextLoading && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    padding: "12px 0",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 18,
+                      height: 18,
+                      border: "2px solid #e5e7eb",
+                      borderTopColor: "#6366f1",
+                      borderRadius: "50%",
+                      animation: "spin .7s linear infinite",
+                    }}
+                  />
+                </div>
+              )}
+              {!contextLoading && contextItems.length === 0 && (
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "#9ca3af",
+                    margin: 0,
+                    textAlign: "center",
+                  }}
+                >
+                  No context snippets yet.
+                </p>
+              )}
+              {!contextLoading &&
+                contextItems.map((item, i) => {
+                  const deleting = deletingCtx === item._id;
+                  return (
+                    <div
+                      key={item._id}
+                      style={{
+                        position: "relative",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 10,
+                        padding: "10px 12px",
+                        background: "#f9fafb",
+                        borderRadius: 9,
+                        overflow: "hidden",
+                      }}
+                    >
+                      {deleting && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            background: "rgba(243,244,246,.8)",
+                            backdropFilter: "blur(3px)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: 9,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 14,
+                              height: 14,
+                              border: "2px solid #d1d5db",
+                              borderTopColor: "#6b7280",
+                              borderRadius: "50%",
+                              animation: "spin .7s linear infinite",
+                            }}
+                          />
+                        </div>
+                      )}
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: "#9ca3af",
+                          marginTop: 2,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {i + 1}
+                      </span>
+                      <p
+                        style={{
+                          flex: 1,
+                          fontSize: 12,
+                          color: "#374151",
+                          margin: 0,
+                          lineHeight: 1.6,
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {item.text}
+                      </p>
+                      <button
+                        onClick={() => handleDeleteContext(item._id)}
+                        disabled={!!deletingCtx}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#9ca3af",
+                          display: "flex",
+                          flexShrink: 0,
+                          transition: "color .15s",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.color = "#ef4444")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.color = "#9ca3af")
+                        }
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+
+          {/* ── Sequence ── */}
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 14,
+              overflow: "hidden",
+              marginBottom: 12,
+              boxShadow: "0 1px 3px rgba(0,0,0,.05)",
+            }}
+          >
+            <div
+              style={{
+                padding: "12px 18px",
+                borderBottom: "1px solid #f3f4f6",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <Mail size={13} color="#6366f1" />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                Sequence
+              </span>
+            </div>
+            {campaign.steps.map((step, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: "12px 18px",
+                  borderBottom:
+                    i < campaign.steps.length - 1
+                      ? "1px solid #f3f4f6"
+                      : "none",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 7,
+                    background: "#f5f3ff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#6366f1",
+                    flexShrink: 0,
+                    marginTop: 1,
+                  }}
+                >
+                  {i + 1}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#111827",
+                      margin: "0 0 2px 0",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {step.subject}
+                  </p>
+                  <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
+                    {i === 0
+                      ? "Sent immediately"
+                      : `Wait ${step.delayDays} day${step.delayDays !== 1 ? "s" : ""} after previous`}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Add leads ── */}
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 14,
+              overflow: "hidden",
+              marginBottom: 12,
+              boxShadow: "0 1px 3px rgba(0,0,0,.05)",
+            }}
+          >
+            <div
+              onClick={() => {
+                setShowAddLeads(!showAddLeads);
+                setLeadsResult(null);
+              }}
+              style={{
+                padding: "12px 18px",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+              }}
+            >
+              <Plus size={13} color="#6366f1" />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                Add more leads
+              </span>
+              <span
+                style={{ fontSize: 11, color: "#9ca3af", marginLeft: "auto" }}
+              >
+                {showAddLeads ? "▲ collapse" : "▼ expand"}
+              </span>
+            </div>
+
+            {showAddLeads && (
+              <div
+                style={{
+                  padding: "0 18px 16px",
+                  borderTop: "1px solid #f3f4f6",
+                }}
+              >
+                <div style={{ paddingTop: 14 }}>
+                  <LeadUploader
+                    onLeadsParsed={handleLeadsParsed}
+                    leadCount={leadCount}
+                  />
+                </div>
+                {leadsResult && (
+                  <div
+                    style={{
+                      margin: "10px 0",
+                      padding: "10px 14px",
+                      background: "#f0fdf4",
+                      border: "1px solid #bbf7d0",
+                      borderRadius: 9,
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontSize: 13,
+                        color: "#16a34a",
+                        margin: 0,
+                        fontWeight: 500,
+                      }}
+                    >
+                      ✓ {leadsResult.added} lead
+                      {leadsResult.added !== 1 ? "s" : ""} added,{" "}
+                      {leadsResult.skipped} skipped (duplicates)
+                    </p>
+                  </div>
+                )}
+                <button
+                  onClick={handleUploadLeads}
+                  disabled={leadCount === 0 || uploadingLeads}
+                  style={{
+                    marginTop: 10,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "9px 18px",
+                    background:
+                      leadCount > 0 && !uploadingLeads ? "#6366f1" : "#e5e7eb",
+                    color:
+                      leadCount > 0 && !uploadingLeads ? "#fff" : "#9ca3af",
+                    border: "none",
+                    borderRadius: 9,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor:
+                      leadCount > 0 && !uploadingLeads ? "pointer" : "default",
+                  }}
+                >
+                  {uploadingLeads ? (
+                    <>
+                      <div
+                        style={{
+                          width: 13,
+                          height: 13,
+                          border: "2px solid #a5b4fc",
+                          borderTopColor: "#fff",
+                          borderRadius: "50%",
+                          animation: "spin .7s linear infinite",
+                        }}
+                      />{" "}
+                      Uploading…
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={13} /> Upload {leadCount > 0 ? leadCount : ""}{" "}
+                      leads
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <SmartReplyPanel
+            campaignId={campaign._id}
+            repliedLeads={leads.filter((l) => l.status === "replied")}
+            onDone={load}
+          />
+
+          {/* ── Leads ── */}
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 14,
+              overflow: "hidden",
+              boxShadow: "0 1px 3px rgba(0,0,0,.05)",
+            }}
+          >
+            <div
+              style={{
+                padding: "12px 18px",
+                borderBottom: "1px solid #f3f4f6",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <Users size={13} color="#6366f1" />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                Leads
+              </span>
+              <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                ({leads.length})
+              </span>
+              <div
+                style={{
+                  marginLeft: "auto",
+                  display: "flex",
+                  gap: 4,
+                  background: "#f3f4f6",
+                  borderRadius: 8,
+                  padding: 3,
+                }}
+              >
+                {["all", "pending", "contacted", "replied", "failed"].map(
+                  (f) => (
+                    <button
+                      key={f}
+                      onClick={() => setLeadFilter(f)}
+                      style={{
+                        padding: "4px 10px",
+                        border: "none",
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: leadFilter === f ? 600 : 400,
+                        background: leadFilter === f ? "#fff" : "transparent",
+                        color: leadFilter === f ? "#111827" : "#9ca3af",
+                        cursor: "pointer",
+                        textTransform: "capitalize",
+                        boxShadow:
+                          leadFilter === f
+                            ? "0 1px 3px rgba(0,0,0,.08)"
+                            : "none",
+                        transition: "all .15s",
+                      }}
+                    >
+                      {f}
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+
+            {filteredLeads.length === 0 ? (
+              <div
+                style={{
+                  padding: "32px 20px",
+                  textAlign: "center",
+                  color: "#9ca3af",
+                  fontSize: 13,
+                }}
+              >
+                No leads with status "{leadFilter}"
+              </div>
+            ) : (
+              filteredLeads.map((lead: Lead, i: number) => (
+                <div
+                  key={lead.email}
+                  onClick={() => setThreadLead(lead.email)}
+                  style={{
+                    padding: "11px 18px",
+                    borderBottom:
+                      i < filteredLeads.length - 1
+                        ? "1px solid #f9fafb"
+                        : "none",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    cursor: "pointer",
+                    transition: "background .15s",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "#fafafa")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
+                >
+                  <div
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 8,
+                      background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#fff",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {lead.email[0].toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#111827",
+                        margin: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {lead.email}
+                    </p>
+                    <p style={{ fontSize: 11, color: "#9ca3af", margin: 0 }}>
+                      Step {lead.currentStep + 1} · Last contact{" "}
+                      {formatDate(lead.lastContactedAt)}
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {leadStatusIcon[lead.status]}
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: leadStatusColor[lead.status],
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {lead.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+      {threadLead && (
+        <LeadThreadPanel
+          campaignId={campaign._id}
+          leadEmail={threadLead}
+          onClose={() => setThreadLead(null)}
+          onReply={(email) => {
+            setThreadLead(null);
+            // scroll to SmartReplyPanel or open one-by-one mode
+          }}
+        />
+      )}
+    </>
+  );
+}

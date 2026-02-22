@@ -220,43 +220,92 @@ export const getEmailsAlgolia = async (req: Request, res: Response) => {
   }
 };
 
+// export const searchEmailAlgolia = async (req: Request, res: Response) => {
+//   try {
+//     const userId = req.user?.id;
+//     if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+//     const q = (req.params.query || "").trim(); // free text search
+//     const folder = req.query.folder as string; // optional folder
+//     const selectedEmails = req.query.emails
+//       ? (req.query.emails as string).split(",").map((e) => e.trim())
+//       : [];
+//     const hitsPerPage = Number(req.query.limit) || 50;
+
+//     // Base filter: current user
+//     let filters = `user:"${userId}"`;
+
+//     if (folder) filters += ` AND folder:"${folder}"`;
+
+//     if (selectedEmails.length > 0) {
+//       const emailFilters = selectedEmails
+//         .map((e) => `email:"${e}"`)
+//         .join(" OR ");
+//       filters += ` AND (${emailFilters})`;
+//     }
+
+//     // Algolia search
+//     const result = await client.search({
+//       requests: [
+//         {
+//           indexName: "emails",
+//           query: q, // empty = return all emails
+//           filters,
+//           hitsPerPage,
+//         },
+//       ],
+//     });
+
+//     res.json({ success: true, result });
+//   } catch (err: any) {
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
+
 export const searchEmailAlgolia = async (req: Request, res: Response) => {
+  // console.log("hey");
   try {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const q = (req.params.query || "").trim(); // free text search
-    const folder = req.query.folder as string; // optional folder
-    const selectedEmails = req.query.emails
-      ? (req.query.emails as string).split(",").map((e) => e.trim())
-      : [];
-    const hitsPerPage = Number(req.query.limit) || 50;
+    const query = ((req.query.query as string) || "").trim();
+    const folder = req.query.folder as string;
+    const account = req.query.account as string;
+    const category = req.query.category as string;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
 
-    // Base filter: current user
-    let filters = `user:"${userId}"`;
+    // Build filters
+    const filters: string[] = [`user:"${userId}"`];
+    if (folder) filters.push(`folder:"${folder}"`);
+    if (account && account !== "all") filters.push(`email:"${account}"`); // skip if "all"
+    if (category) filters.push(`category:"${category}"`);
 
-    if (folder) filters += ` AND folder:"${folder}"`;
-
-    if (selectedEmails.length > 0) {
-      const emailFilters = selectedEmails
-        .map((e) => `email:"${e}"`)
-        .join(" OR ");
-      filters += ` AND (${emailFilters})`;
-    }
-
-    // Algolia search
-    const result = await client.search({
-      requests: [
-        {
-          indexName: "emails",
-          query: q, // empty = return all emails
-          filters,
-          hitsPerPage,
-        },
-      ],
+    const result = await client.searchSingleIndex({
+      indexName: "emails",
+      searchParams: {
+        query,
+        filters: filters.join(" AND "),
+        hitsPerPage: limit,
+        page: page - 1, // Algolia is 0-indexed
+      },
     });
 
-    res.json({ success: true, result });
+    const emails = result.hits.map((hit: any) => ({
+      id: hit.objectID,
+      subject: hit.subject,
+      from: hit.from,
+      to: hit.to,
+      snippet: hit.snippet,
+      date: hit.date,
+      folder: hit.folder,
+      category: hit.category,
+      email: hit.email,
+    }));
+
+    // console.log("emails:", emails);
+
+    res.json({ emails, total: result.nbHits });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -326,13 +375,10 @@ export const getSuggestedRepliesController = async (
 export const getUserEmailAccounts = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    if (!userId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    // only return _id and email
     const accounts = await EmailAccount.find({ user: userId }).select(
-      "_id email",
+      "_id email provider isActive notificationsEnabled syncStatus lastSyncedDate initialSyncCompleted",
     );
 
     return res.json({ accounts });
