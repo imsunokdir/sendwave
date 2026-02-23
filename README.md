@@ -1,66 +1,72 @@
+# Sendwave
 
-**Project video:** [Download Here](https://drive.google.com/file/d/1cTRKk1MhmGXvYER2D2hDj_hDKsZmDRci/view?usp=sharing)
+A full-stack cold email outreach platform built with React, Node.js, and MongoDB. Sendwave lets you connect your email accounts, build multi-step sequences, and automate your entire outreach pipeline — from sending to reply detection to AI-powered responses.
 
-**Description:**  
-1. **IMAP Email Accounts:** Real-time syncing via persistent connections.  
-2. **Backend API:** Node.js + TypeScript handles email fetching, indexing, and AI categorization.  
-3. **Elasticsearch:** Stores emails for fast search and filtering by folder/account.  
-4. **ChromaDB:** Vector database for RAG embeddings used in suggested replies.  
-5. **Gemini AI:** Performs email categorization and generates context-aware suggested replies.  
-6. **Frontend UI:** React app served via Nginx to display emails, search, and show AI categorization.  
-7. **Slack/Webhook:** Notifications triggered for "Interested" emails.
+## Features
 
----
+- **Multi-account email sending** — connect multiple Gmail or Outlook accounts via OAuth and app passwords
+- **Campaign sequencer** — build multi-step email sequences with configurable delays and send schedules
+- **Automatic reply detection** — background cron polls for replies and updates lead status in real time
+- **AI-powered smart replies** — uses Groq LLM to draft or auto-send replies to interested leads
+- **Email classification** — HuggingFace models automatically categorize incoming replies (interested, not interested, out of office, etc.)
+- **Lead management** — upload leads via CSV or raw text, paginated table with status filtering
+- **Live dashboard** — reply rate, lead funnel donut chart, recent replies, and campaign health at a glance
+- **AI context system** — attach context snippets (pricing, booking links, key points) that the AI references when generating replies
 
-## Features Implemented
+## Tech Stack
 
-1. **Real-Time Email Synchronization**  
-   - Syncs multiple IMAP accounts  
-   - Fetches last 30 days of emails  
-   - Persistent IMAP connections (IDLE mode)
+**Frontend:** React, TypeScript, Vite, React Router, Recharts  
+**Backend:** Node.js, Express, TypeScript, MongoDB, BullMQ  
+**Queue / Cache:** Upstash Redis  
+**AI:** Groq (smart reply generation)  
+**ML:** HuggingFace (email classification + embeddings)  
+**Vector DB:** Pinecone (stores and searches context embeddings)  
+**Search:** Algolia  
+**Email:** Nodemailer, IMAP, Gmail OAuth, Google Pub/Sub  
+**Infrastructure:** Docker
 
-2. **Searchable Storage (Elasticsearch)**  
-   - Stores emails with folder/account filters  
-   - Supports full-text search across all emails
+## Getting Started
 
-3. **AI-Based Email Categorization (Gemini)**  
-   - Categories: Interested, Meeting Booked, Not Interested, Spam, Out of Office  
+```bash
+# Clone the repo
+git clone https://github.com/yourname/sendwave.git
+cd sendwave
 
-4. **Slack & Webhook Integration**  
-   - Sends Slack notifications for “Interested” emails  
-   - Triggers external webhook (Webhook.site)  
+# Start everything with Docker
+docker compose up --build
+```
 
-5. **Frontend Interface (React + Nginx)**  
-   - Display emails, filter by folder/account  
-   - Show AI categorization  
-   - Search emails via Elasticsearch  
+Client runs on `http://localhost:5173`  
+Server runs on `http://localhost:5000`
 
-6. **RAG-Based Suggested Replies (pincone)**  
-   - Pinecone stores vectors & performs similarity search
-   - Gemini uses retrieved context to generate reply suggestions
-   - Gemini generates the embeddings
-   - Produces dynamic, personalized outreach replies
+## Environment Variables
 
----
+Copy `.env.example` to `server/.env` and fill in your keys:
 
-## Setup Instructions
+| Variable | Description |
+|---|---|
+| `MONGO_URI` | MongoDB Atlas connection string |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis URL |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis token |
+| `GROQ_API_KEY` | Groq API key for smart replies |
+| `HUGGINGFACE_API_TOKEN` | HuggingFace token for classification |
+| `PINECONE_API_KEY` | Pinecone vector DB key |
+| `ALGOLIA_APP_ID` | Algolia app ID |
+| `ALGOLIA_ADMIN_KEY` | Algolia admin key |
+| `JWT_ACCESS_SECRET` | JWT secret for access tokens |
+| `JWT_REFRESH_SECRET` | JWT secret for refresh tokens |
 
-**For simplicity, users currently need to hard-code email and app password in the .env file. Only 2 email accounts max are supported at this stage.**
+## Project Structure
 
-### Prerequisites
-- Docker & Docker Compose installed  
-- `.env` file with email credentials, API keys, and URLs  
-
-### Environment Variables (`server/.env`)
-
-## Future Plans
-
-- **Dynamic Email Integration:** Add a feature to dynamically add new email accounts (Gmail, Yahoo, Outlook, etc.) without restarting the service.  
-- **Email Sending:** Implement sending emails directly from Onebox after generating suggested replies.  
-- **Advanced Categorization:** Support custom categories and multi-language emails.  
-- **User Management:** Add login system for multiple users with separate accounts and preferences.  
-- **Analytics Dashboard:** Show stats like number of emails per category, reply rates, and engagement metrics.  
-- **Optimized Hosting:** Deploy Elasticsearch and ChromaDB efficiently on cloud for production use.  
-- **Improved UI/UX:** Add notifications, real-time updates on frontend, and responsive design for mobile devices.  
-
-
+```
+sendwave/
+  client/        # React frontend
+  server/        # Node.js backend
+    src/
+      controller/   # Route handlers
+      models/       # Mongoose schemas
+      routes/       # Express routes
+      services/     # Business logic
+      queues/       # BullMQ workers
+      cron/         # Reply detection cron jobs
+```
