@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Mail, Send } from "lucide-react";
-import EmailAccounts from "../component/hub/EmailAccounts";
-import CampaignList from "../component/campaign/CampaignList";
+
+// Lazy loaded — only loads when tab is active
+const EmailAccounts = lazy(() => import("../component/hub/EmailAccounts"));
+const CampaignList = lazy(() => import("../component/campaign/CampaignList"));
 
 const TABS = [
   { id: "accounts", label: "Email Accounts", icon: <Mail size={15} /> },
@@ -9,6 +11,25 @@ const TABS = [
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
+
+function TabLoader() {
+  return (
+    <div
+      style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}
+    >
+      <div
+        style={{
+          width: 22,
+          height: 22,
+          border: "3px solid #e5e7eb",
+          borderTopColor: "#6366f1",
+          borderRadius: "50%",
+          animation: "spin .7s linear infinite",
+        }}
+      />
+    </div>
+  );
+}
 
 export default function HubPage() {
   const [activeTab, setActiveTab] = useState<TabId>("accounts");
@@ -33,7 +54,7 @@ export default function HubPage() {
       `}</style>
 
       <div style={{ width: "100%", maxWidth: 580 }}>
-        {/* ── Header ── */}
+        {/* Header */}
         <div style={{ marginBottom: 28 }}>
           <div
             style={{
@@ -80,7 +101,7 @@ export default function HubPage() {
           </p>
         </div>
 
-        {/* ── Tab bar ── */}
+        {/* Tab bar */}
         <div
           style={{
             display: "flex",
@@ -124,10 +145,12 @@ export default function HubPage() {
           })}
         </div>
 
-        {/* ── Tab content ── */}
+        {/* Tab content */}
         <div key={activeTab} className="hub-fade">
-          {activeTab === "accounts" && <EmailAccounts />}
-          {activeTab === "outreach" && <CampaignList />}
+          <Suspense fallback={<TabLoader />}>
+            {activeTab === "accounts" && <EmailAccounts />}
+            {activeTab === "outreach" && <CampaignList />}
+          </Suspense>
         </div>
       </div>
     </div>

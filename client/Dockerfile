@@ -1,14 +1,15 @@
-# Stage 1: Build React app with Node
-FROM node:20-alpine AS build
+FROM node:20-alpine
 
 WORKDIR /app
+
+# Install dependencies first (cached layer)
 COPY package*.json ./
 RUN npm install
-COPY . .
-RUN npm run build
 
-# Stage 2: Serve with Nginx
-FROM nginx:alpine
-COPY --from=build /app/build/ /usr/share/nginx/html/
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Copy source
+COPY . .
+
+EXPOSE 5173
+
+# Vite needs --host to be accessible outside the container
+CMD ["npm", "run", "dev", "--", "--host"]

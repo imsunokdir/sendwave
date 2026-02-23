@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Power,
@@ -39,8 +39,14 @@ import type {
 import StepBuilder from "../component/campaign/StepBuilder";
 import SchedulePicker from "../component/campaign/SchedulePicker";
 import LeadUploader from "../component/campaign/LeadUploader";
-import SmartReplyPanel from "../component/campaign/SmartReplyPanel";
-import LeadThreadPanel from "../component/campaign/LeadThreadPanel";
+
+// Lazy loaded — only rendered when needed
+const SmartReplyPanel = lazy(
+  () => import("../component/campaign/SmartReplyPanel"),
+);
+const LeadThreadPanel = lazy(
+  () => import("../component/campaign/LeadThreadPanel"),
+);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const statusStyle: Record<
@@ -80,7 +86,6 @@ const formatDate = (date?: string) => {
   });
 };
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
 function StatCard({
   icon,
   label,
@@ -159,15 +164,14 @@ const LEADS_PER_PAGE = 50;
 export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  // ── Campaign ───────────────────────────────────────────────────────────────
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [error, setError] = useState("");
   const [threadLead, setThreadLead] = useState<string | null>(null);
 
-  // ── Leads (paginated) ──────────────────────────────────────────────────────
   const [leads, setLeads] = useState<Lead[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(true);
   const [leadsPage, setLeadsPage] = useState(1);
@@ -175,7 +179,6 @@ export default function CampaignDetailPage() {
   const [leadsTotalPages, setLeadsTotalPages] = useState(1);
   const [leadFilter, setLeadFilter] = useState("all");
 
-  // ── Edit ───────────────────────────────────────────────────────────────────
   const [editingDetails, setEditingDetails] = useState(false);
   const [editName, setEditName] = useState("");
   const [editSteps, setEditSteps] = useState<Campaign["steps"]>([]);
@@ -187,14 +190,12 @@ export default function CampaignDetailPage() {
   });
   const [savingDetails, setSavingDetails] = useState(false);
 
-  // ── Context ────────────────────────────────────────────────────────────────
   const [contextItems, setContextItems] = useState<CampaignContextItem[]>([]);
   const [contextLoading, setContextLoading] = useState(true);
   const [contextText, setContextText] = useState("");
   const [savingContext, setSavingContext] = useState(false);
   const [deletingCtx, setDeletingCtx] = useState<string | null>(null);
 
-  // ── Add leads ──────────────────────────────────────────────────────────────
   const [showAddLeads, setShowAddLeads] = useState(false);
   const [leadsRaw, setLeadsRaw] = useState("");
   const [leadsType, setLeadsType] = useState<"raw" | "csv">("raw");
@@ -205,7 +206,12 @@ export default function CampaignDetailPage() {
     skipped: number;
   } | null>(null);
 
-  // ── Load campaign ──────────────────────────────────────────────────────────
+  // Auto-open thread from dashboard ?openLead= param
+  useEffect(() => {
+    const openLead = searchParams.get("openLead");
+    if (openLead) setThreadLead(openLead);
+  }, [searchParams]);
+
   const load = async () => {
     try {
       const data = await getCampaignService(id!);
@@ -220,7 +226,6 @@ export default function CampaignDetailPage() {
     }
   };
 
-  // ── Load leads (paginated) ─────────────────────────────────────────────────
   const loadLeads = useCallback(
     async (page: number, status: string) => {
       setLeadsLoading(true);
@@ -235,7 +240,7 @@ export default function CampaignDetailPage() {
         setLeadsTotal(data.total);
         setLeadsTotalPages(data.totalPages);
       } catch {
-        // fail silently
+        /* fail silently */
       } finally {
         setLeadsLoading(false);
       }
@@ -249,7 +254,7 @@ export default function CampaignDetailPage() {
       const data = await getCampaignContextService(id!);
       setContextItems(data);
     } catch {
-      // fail silently
+      /* fail silently */
     } finally {
       setContextLoading(false);
     }
@@ -263,13 +268,11 @@ export default function CampaignDetailPage() {
     loadLeads(leadsPage, leadFilter);
   }, [leadsPage, leadFilter, loadLeads]);
 
-  // ── Filter change resets to page 1 ────────────────────────────────────────
   const handleFilterChange = (f: string) => {
     setLeadFilter(f);
     setLeadsPage(1);
   };
 
-  // ── Toggle status ──────────────────────────────────────────────────────────
   const handleToggle = async () => {
     if (!campaign) return;
     setToggling(true);
@@ -289,7 +292,6 @@ export default function CampaignDetailPage() {
     }
   };
 
-  // ── Save details ───────────────────────────────────────────────────────────
   const handleSaveDetails = async () => {
     if (!campaign) return;
     setSavingDetails(true);
@@ -308,7 +310,6 @@ export default function CampaignDetailPage() {
     }
   };
 
-  // ── Context ────────────────────────────────────────────────────────────────
   const handleAddContext = async () => {
     const trimmed = contextText.trim();
     if (!trimmed) return;
@@ -336,12 +337,11 @@ export default function CampaignDetailPage() {
     }
   };
 
-  // ── Add leads ──────────────────────────────────────────────────────────────
   const handleLeadsParsed = (raw: string, type: "raw" | "csv") => {
     setLeadsRaw(raw);
     setLeadsType(type);
-    const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
-    const matches = raw.match(emailRegex) ?? [];
+    const matches =
+      raw.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) ?? [];
     setLeadCount([...new Set(matches)].length);
   };
 
@@ -365,7 +365,6 @@ export default function CampaignDetailPage() {
     }
   };
 
-  // ── Loading / error ────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div
@@ -378,6 +377,7 @@ export default function CampaignDetailPage() {
           fontFamily: "'DM Sans', sans-serif",
         }}
       >
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         <div
           style={{
             width: 32,
@@ -388,7 +388,6 @@ export default function CampaignDetailPage() {
             animation: "spin .7s linear infinite",
           }}
         />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -451,7 +450,7 @@ export default function CampaignDetailPage() {
         `}</style>
 
         <div style={{ maxWidth: 700, margin: "0 auto" }}>
-          {/* ── Back ── */}
+          {/* Back */}
           <button
             onClick={() => navigate("/hub")}
             style={{
@@ -472,7 +471,7 @@ export default function CampaignDetailPage() {
             <ArrowLeft size={14} /> Back to Hub
           </button>
 
-          {/* ── Header ── */}
+          {/* Header */}
           <div
             style={{
               background: "#fff",
@@ -601,7 +600,7 @@ export default function CampaignDetailPage() {
             </div>
           </div>
 
-          {/* ── Edit panel ── */}
+          {/* Edit panel */}
           {editingDetails && (
             <div
               style={{
@@ -757,7 +756,7 @@ export default function CampaignDetailPage() {
             </div>
           )}
 
-          {/* ── Stats ── */}
+          {/* Stats */}
           <div
             style={{
               display: "grid",
@@ -792,7 +791,7 @@ export default function CampaignDetailPage() {
             />
           </div>
 
-          {/* ── Context ── */}
+          {/* Context */}
           <div
             style={{
               background: "#fff",
@@ -1015,7 +1014,7 @@ export default function CampaignDetailPage() {
             </div>
           </div>
 
-          {/* ── Sequence ── */}
+          {/* Sequence */}
           <div
             style={{
               background: "#fff",
@@ -1096,7 +1095,7 @@ export default function CampaignDetailPage() {
             ))}
           </div>
 
-          {/* ── Add leads ── */}
+          {/* Add leads */}
           <div
             style={{
               background: "#fff",
@@ -1213,17 +1212,19 @@ export default function CampaignDetailPage() {
             )}
           </div>
 
-          {/* ── Smart reply ── */}
-          <SmartReplyPanel
-            campaignId={campaign._id}
-            repliedLeads={repliedLeads}
-            onDone={() => {
-              load();
-              loadLeads(leadsPage, leadFilter);
-            }}
-          />
+          {/* Smart reply — lazy loaded */}
+          <Suspense fallback={null}>
+            <SmartReplyPanel
+              campaignId={campaign._id}
+              repliedLeads={repliedLeads}
+              onDone={() => {
+                load();
+                loadLeads(leadsPage, leadFilter);
+              }}
+            />
+          </Suspense>
 
-          {/* ── Leads ── */}
+          {/* Leads */}
           <div
             style={{
               background: "#fff",
@@ -1233,7 +1234,6 @@ export default function CampaignDetailPage() {
               boxShadow: "0 1px 3px rgba(0,0,0,.05)",
             }}
           >
-            {/* Header */}
             <div
               style={{
                 padding: "12px 18px",
@@ -1292,7 +1292,6 @@ export default function CampaignDetailPage() {
               </div>
             </div>
 
-            {/* Lead rows */}
             {leadsLoading ? (
               <div
                 style={{
@@ -1405,7 +1404,6 @@ export default function CampaignDetailPage() {
               ))
             )}
 
-            {/* Pagination */}
             {leadsTotalPages > 1 && (
               <div
                 style={{
@@ -1470,15 +1468,17 @@ export default function CampaignDetailPage() {
         </div>
       </div>
 
-      {/* Thread panel */}
-      {threadLead && (
-        <LeadThreadPanel
-          campaignId={campaign._id}
-          leadEmail={threadLead}
-          onClose={() => setThreadLead(null)}
-          onReply={() => setThreadLead(null)}
-        />
-      )}
+      {/* Thread panel — lazy loaded, only mounts when a lead is clicked */}
+      <Suspense fallback={null}>
+        {threadLead && (
+          <LeadThreadPanel
+            campaignId={campaign._id}
+            leadEmail={threadLead}
+            onClose={() => setThreadLead(null)}
+            onReply={() => setThreadLead(null)}
+          />
+        )}
+      </Suspense>
     </>
   );
 }

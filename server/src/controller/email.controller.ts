@@ -48,71 +48,6 @@ export const searchEmailsC = async (req: Request, res: Response) => {
   }
 };
 
-// export const getAllEmailsController = async (req: Request, res: Response) => {
-//   const { account, folder, page, limit } = req.query as {
-//     account?: string;
-//     folder?: string;
-//     page?: string;
-//     limit?: string;
-//   };
-
-//   try {
-//     const results = await getAllEmails(
-//       account,
-//       folder,
-//       page ? parseInt(page) : 1,
-//       limit ? parseInt(limit) : 10
-//     );
-
-//     // console.log("res all emails:", results);
-
-//     res.json({ results });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ error: "Failed to fetch emails" });
-//   }
-// };
-
-// export const getAllEmailsController = async (req: Request, res: Response) => {
-//   const { account, folder, page, limit, query } = req.query as {
-//     account?: string;
-//     folder?: string;
-//     page?: string;
-//     limit?: string;
-//     query?: string;
-//   };
-//   console.log("query:", query);
-//   try {
-//     let results;
-
-//     if (query?.trim()) {
-//       // If search query exists, use searchEmails
-//       results = await searchEmails(
-//         query,
-//         account,
-//         folder,
-//         page ? parseInt(page) : 1,
-//         limit ? parseInt(limit) : 10
-//       );
-//     } else {
-//       // Otherwise fetch all emails normally
-//       results = await getAllEmails(
-//         account,
-//         folder,
-//         page ? parseInt(page) : 1,
-//         limit ? parseInt(limit) : 10
-//       );
-//     }
-
-//     console.log("Resits:", { results });
-
-//     res.json({ results });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ error: "Failed to fetch emails" });
-//   }
-// };
-
 export const getAllEmailsController = async (req: Request, res: Response) => {
   const { account, folder, page, limit, query, category } = req.query as {
     account?: string;
@@ -154,31 +89,6 @@ export const getAllEmailsController = async (req: Request, res: Response) => {
   }
 };
 
-// export const getEmailsAlgolia = async (req: Request, res: Response) => {
-//   try {
-//     const userEmail = req.user?.email;
-//     if (!userEmail) return res.status(401).json({ message: "Unauthorized" });
-
-//     const folder = req.params.folder;
-//     const hitsPerPage = Number(req.query.limit) || 50;
-
-//     const result = await client.search({
-//       requests: [
-//         {
-//           indexName: "emails",
-//           query: "", // empty = fetch all emails
-//           filters: `email:"${userEmail}" AND folder:"${folder}"`,
-//           hitsPerPage,
-//         },
-//       ],
-//     });
-
-//     res.json({ success: true, result });
-//   } catch (err: any) {
-//     res.status(500).json({ success: false, message: err.message });
-//   }
-// };
-
 export const getEmailsAlgolia = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
@@ -219,48 +129,6 @@ export const getEmailsAlgolia = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
-
-// export const searchEmailAlgolia = async (req: Request, res: Response) => {
-//   try {
-//     const userId = req.user?.id;
-//     if (!userId) return res.status(401).json({ message: "Unauthorized" });
-
-//     const q = (req.params.query || "").trim(); // free text search
-//     const folder = req.query.folder as string; // optional folder
-//     const selectedEmails = req.query.emails
-//       ? (req.query.emails as string).split(",").map((e) => e.trim())
-//       : [];
-//     const hitsPerPage = Number(req.query.limit) || 50;
-
-//     // Base filter: current user
-//     let filters = `user:"${userId}"`;
-
-//     if (folder) filters += ` AND folder:"${folder}"`;
-
-//     if (selectedEmails.length > 0) {
-//       const emailFilters = selectedEmails
-//         .map((e) => `email:"${e}"`)
-//         .join(" OR ");
-//       filters += ` AND (${emailFilters})`;
-//     }
-
-//     // Algolia search
-//     const result = await client.search({
-//       requests: [
-//         {
-//           indexName: "emails",
-//           query: q, // empty = return all emails
-//           filters,
-//           hitsPerPage,
-//         },
-//       ],
-//     });
-
-//     res.json({ success: true, result });
-//   } catch (err: any) {
-//     res.status(500).json({ success: false, message: err.message });
-//   }
-// };
 
 export const searchEmailAlgolia = async (req: Request, res: Response) => {
   // console.log("hey");
@@ -387,66 +255,6 @@ export const getUserEmailAccounts = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
-
-// export const sendEmail = async (req: Request, res: Response) => {
-//   const { to, subject, text, html, from } = req.body;
-
-//   try {
-//     const transporter = nodemailer.createTransport({
-//       host: process.env.SMTP_HOST,
-//       port: Number(process.env.SMTP_PORT),
-//       secure: false,
-//       auth: {
-//         user: process.env.SMTP_USER,
-//         pass: process.env.SMTP_PASS,
-//       },
-//     });
-
-//     await transporter.sendMail({
-//       from,
-//       to,
-//       subject,
-//       text,
-//       html,
-//     });
-
-//     res.json({ success: true });
-//   } catch (err: any) {
-//     console.error("Error sending email:", err);
-//     res.status(500).json({ success: false, error: err.message });
-//   }
-// };
-
-// server/src/controllers/emailAccountsController.ts
-
-// export const getAllEmailAccounts = async (req: Request, res: Response) => {
-//   try {
-//     const result = await elasticClient.search({
-//       index: "emails",
-//       size: 0, // we don’t need actual documents
-//       aggs: {
-//         accounts: {
-//           terms: { field: "account.keyword", size: 100 }, // use .keyword for exact match
-//         },
-//       },
-//     });
-
-//     console.log("acc res:", result);
-
-//     const accounts = (
-//       (result.aggregations as any)?.accounts?.buckets || []
-//     ).map((b: any) => b.key);
-
-//     res.json({ accounts });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ error: "Failed to fetch accounts" });
-//   }
-// };
-
-// export const getAllEmailAccounts = async (req: Request, res: Response) => {
-//   res.json({ message: "hey from server" });
-// };
 
 export const fetchAndCategorizeEmails = async () => {
   let page = 0;
