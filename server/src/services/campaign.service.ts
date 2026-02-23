@@ -1,130 +1,119 @@
 import { Campaign } from "../models/campaign.model";
-import type { ICampaign, ICampaignStep, ILead } from "../models/campaign.model";
-import { Types } from "mongoose";
+import { Lead } from "../models/lead.model";
+import type { ICampaign } from "../models/campaign.model";
 
-// ─── Create campaign ───────────────────────────────────────────────────────────
+// ── Create ────────────────────────────────────────────────────────────────────
 export const createCampaign = async (
   userId: string,
   data: {
     name: string;
     emailAccount: string;
-    steps: ICampaignStep[];
-    schedule?: Partial<ICampaign["schedule"]>;
+    steps: ICampaign["steps"];
+    schedule: ICampaign["schedule"];
   },
 ) => {
-  const campaign = await Campaign.create({
-    user: new Types.ObjectId(userId),
-    emailAccount: new Types.ObjectId(data.emailAccount),
-    name: data.name,
-    steps: data.steps,
-    schedule: data.schedule ?? {},
-  });
-  return campaign;
+  return Campaign.create({ user: userId, ...data });
 };
 
-// ─── Get all campaigns for user ───────────────────────────────────────────────
+// ── Get all ───────────────────────────────────────────────────────────────────
 export const getUserCampaigns = async (userId: string) => {
-  return Campaign.find({ user: userId })
-    .select("-leads") // don't return full lead list in list view
-    .sort({ createdAt: -1 });
+  return Campaign.find({ user: userId }).sort({ createdAt: -1 }).lean();
 };
 
-// ─── Get single campaign ──────────────────────────────────────────────────────
-export const getCampaignById = async (campaignId: string, userId: string) => {
-  return Campaign.findOne({ _id: campaignId, user: userId });
+// ── Get one ───────────────────────────────────────────────────────────────────
+export const getCampaignById = async (id: string, userId: string) => {
+  return Campaign.findOne({ _id: id, user: userId }).lean();
 };
 
-// ─── Update campaign ──────────────────────────────────────────────────────────
+// ── Update ────────────────────────────────────────────────────────────────────
 export const updateCampaign = async (
-  campaignId: string,
+  id: string,
   userId: string,
-  updates: Partial<
-    Pick<ICampaign, "name" | "steps" | "schedule" | "emailAccount">
-  >,
+  data: Partial<Pick<ICampaign, "name" | "steps" | "schedule">>,
 ) => {
   return Campaign.findOneAndUpdate(
-    { _id: campaignId, user: userId },
-    { $set: updates },
+    { _id: id, user: userId },
+    { $set: data },
     { new: true },
-  );
+  ).lean();
 };
 
-// ─── Delete campaign ──────────────────────────────────────────────────────────
-export const deleteCampaign = async (campaignId: string, userId: string) => {
-  return Campaign.findOneAndDelete({ _id: campaignId, user: userId });
+// ── Delete ────────────────────────────────────────────────────────────────────
+export const deleteCampaign = async (id: string, userId: string) => {
+  const campaign = await Campaign.findOneAndDelete({ _id: id, user: userId });
+  if (campaign) await Lead.deleteMany({ campaignId: id });
 };
 
-// ─── Toggle status (launch / pause) ──────────────────────────────────────────
+// ── Set status ────────────────────────────────────────────────────────────────
 export const setCampaignStatus = async (
-  campaignId: string,
+  id: string,
   userId: string,
   status: ICampaign["status"],
 ) => {
   return Campaign.findOneAndUpdate(
-    { _id: campaignId, user: userId },
+    { _id: id, user: userId },
     { $set: { status } },
     { new: true },
-  );
+  ).lean();
 };
 
-// ─── Parse leads from raw text (paste or txt file) ───────────────────────────
-export const parseLeadsFromText = (raw: string): ILead[] => {
+// ── Add leads ─────────────────────────────────────────────────────────────────
+export const addLeadsToCampaign = async (
+  campaignId: string,
+  rawText: string,
+  type: "raw" | "csv" = "raw",
+): Promise<{ added: number; skipped: number }> => {
   const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
-  const matches = raw.match(emailRegex) ?? [];
-  const unique = [...new Set(matches)];
-  return unique.map((email) => ({ email, status: "pending", currentStep: 0 }));
-};
+  const matches = rawText.match(emailRegex) ?? [];
+  const emails = [...new Set(matches.map((e) => e.toLowerCase().trim()))];
 
-// ─── Parse leads from CSV text ────────────────────────────────────────────────
-export const parseLeadsFromCSV = (csvText: string): ILead[] => {
-  const lines = csvText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (lines.length === 0) return [];
+  let added = 0;
+  let skipped = 0;
 
-  const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
-
-  // Try to find which column has emails by checking the first data row
-  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-  const emailColIndex = headers.findIndex((h) => h.includes("email"));
-
-  const dataLines = emailColIndex >= 0 ? lines.slice(1) : lines;
-
-  const emails: string[] = [];
-  for (const line of dataLines) {
-    if (emailColIndex >= 0) {
-      const cols = line.split(",");
-      const val = cols[emailColIndex]?.trim().replace(/"/g, "");
-      if (val && emailRegex.test(val)) emails.push(val);
-      emailRegex.lastIndex = 0;
-    } else {
-      // No header — extract any email found in the line
-      const found = line.match(emailRegex);
-      if (found) emails.push(...found);
+  for (const email of emails) {
+    try {
+      await Lead.create({ campaignId, email });
+      added++;
+    } catch (err: any) {
+      if (err.code === 11000)
+        skipped++; // duplicate
+      else throw err;
     }
   }
 
-  const unique = [...new Set(emails)];
-  return unique.map((email) => ({ email, status: "pending", currentStep: 0 }));
+  if (added > 0) {
+    await Campaign.findByIdAndUpdate(campaignId, {
+      $inc: { "stats.totalLeads": added },
+    });
+  }
+
+  return { added, skipped };
 };
 
-// ─── Add leads to existing campaign ──────────────────────────────────────────
-export const addLeadsToCampaign = async (
+// ── Get leads with pagination ─────────────────────────────────────────────────
+export const getCampaignLeads = async (
   campaignId: string,
-  userId: string,
-  newLeads: ILead[],
+  page: number = 1,
+  limit: number = 50,
+  status?: string,
 ) => {
-  const campaign = await Campaign.findOne({ _id: campaignId, user: userId });
-  if (!campaign) throw new Error("Campaign not found");
+  const filter: any = { campaignId };
+  if (status && status !== "all") filter.status = status;
 
-  // Avoid duplicate emails
-  const existing = new Set(campaign.leads.map((l) => l.email));
-  const filtered = newLeads.filter((l) => !existing.has(l.email));
+  const [leads, total] = await Promise.all([
+    Lead.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    Lead.countDocuments(filter),
+  ]);
 
-  campaign.leads.push(...filtered);
-  campaign.stats.totalLeads = campaign.leads.length;
-  await campaign.save();
-
-  return { added: filtered.length, skipped: newLeads.length - filtered.length };
+  return {
+    leads,
+    total,
+    page,
+    totalPages: Math.ceil(total / limit),
+    hasMore: page * limit < total,
+  };
 };

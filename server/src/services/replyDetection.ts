@@ -1,36 +1,34 @@
 import { Campaign } from "../models/campaign.model";
+import { Lead } from "../models/lead.model";
 
 export const checkAndMarkReply = async (fromEmail: string): Promise<void> => {
   try {
     const email = fromEmail.toLowerCase().trim();
 
-    const campaign = await Campaign.findOne({
-      status: "active",
-      "leads.email": email,
-    });
-
-    if (!campaign) return;
-
-    const lead = campaign.leads.find((l) => l.email === email);
+    // Find campaign lead by email
+    const lead = await Lead.findOne({ email });
     if (!lead) return;
 
-    // Always update repliedAt so we track the latest reply time
-    // Only increment stats.replied if this is the first reply
+    const campaign = await Campaign.findOne({
+      _id: lead.campaignId,
+      status: "active",
+    });
+    if (!campaign) return;
+
     const isFirstReply = lead.status !== "replied";
 
-    await Campaign.updateOne(
-      { _id: campaign._id, "leads.email": email },
-      {
-        $set: {
-          "leads.$.status": "replied",
-          "leads.$.repliedAt": new Date(),
-        },
-        ...(isFirstReply ? { $inc: { "stats.replied": 1 } } : {}),
-      },
-    );
+    await Lead.findByIdAndUpdate(lead._id, {
+      $set: { status: "replied", repliedAt: new Date() },
+    });
+
+    if (isFirstReply) {
+      await Campaign.findByIdAndUpdate(campaign._id, {
+        $inc: { "stats.replied": 1 },
+      });
+    }
 
     console.log(
-      `✉️ Lead ${email} replied in campaign "${campaign.name}" (first reply: ${isFirstReply})`,
+      `✉️ Lead ${email} replied in campaign "${campaign.name}" (first: ${isFirstReply})`,
     );
   } catch (err: any) {
     console.error("❌ Reply detection error:", err.message);

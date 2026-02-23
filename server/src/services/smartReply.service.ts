@@ -1,5 +1,6 @@
 import { client } from "../config/algoliaClient";
 import { Campaign } from "../models/campaign.model";
+import { Lead } from "../models/lead.model";
 import { EmailAccount } from "../models/emailAccounts.model";
 import { searchCampaignContext } from "./campaignContext";
 import { decrypt } from "../utility/encryptionUtility";
@@ -8,7 +9,7 @@ import nodemailer from "nodemailer";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// ── Fetch lead's latest reply from Algolia ────────────────────────────────────
+// ── Fetch lead reply from Algolia ─────────────────────────────────────────────
 export const getLeadReplyFromAlgolia = async (
   fromEmail: string,
   accountId: string,
@@ -18,35 +19,31 @@ export const getLeadReplyFromAlgolia = async (
       indexName: "emails",
       searchParams: {
         query: "",
-        filters: `from:"${fromEmail}" AND accountId:"${accountId}" AND folder:"INBOX"`,
+        filters: `accountId:"${accountId}" AND folder:"INBOX" AND from:"${fromEmail}"`,
         hitsPerPage: 1,
-        attributesToRetrieve: ["text", "subject", "category", "date"],
+        attributesToRetrieve: ["text", "subject", "category"],
       },
     });
-
     const hit = results.hits[0] as any;
     if (!hit) return null;
-
     return {
       text: hit.text || "",
       subject: hit.subject || "",
       category: hit.category || "Uncategorized",
     };
-  } catch (err: any) {
-    console.error(`Failed to fetch reply for ${fromEmail}:`, err.message);
+  } catch {
     return null;
   }
 };
 
-// ── Generate AI reply using campaign context ───────────────────────────────────
+// ── Generate AI reply ─────────────────────────────────────────────────────────
 export const generateCampaignReply = async (
   campaignId: string,
   emailText: string,
 ): Promise<string | null> => {
   try {
     const context = await searchCampaignContext(campaignId, emailText);
-
-    const prompt = `You are an email assistant helping with outreach campaigns. Use the context below to write a short, professional reply to the email.
+    const prompt = `You are an email assistant helping with outreach campaigns. Use the context below to write a short, professional reply.
 
 ${context ? `Context:\n${context}\n` : ""}
 Email received:
@@ -59,15 +56,13 @@ Write a concise, friendly reply (2-4 sentences max):`;
       messages: [{ role: "user", content: prompt }],
       max_tokens: 200,
     });
-
     return completion.choices[0]?.message?.content?.trim() ?? null;
-  } catch (err: any) {
-    console.error("Failed to generate reply:", err.message);
+  } catch {
     return null;
   }
 };
 
-// ── Send reply via SMTP ────────────────────────────────────────────────────────
+// ── Send reply via SMTP ───────────────────────────────────────────────────────
 export const sendReplyEmail = async (
   account: any,
   toEmail: string,
@@ -75,14 +70,12 @@ export const sendReplyEmail = async (
   body: string,
 ): Promise<void> => {
   const password = decrypt(account.passwordEnc);
-
   const transporter = nodemailer.createTransport({
     host: account.imapHost.replace("imap.", "smtp."),
     port: 465,
     secure: true,
     auth: { user: account.email, pass: password },
   });
-
   await transporter.sendMail({
     from: account.email,
     to: toEmail,
@@ -102,45 +95,28 @@ export const autoReplyInterested = async (
   const account = await EmailAccount.findById(campaign.emailAccount);
   if (!account) throw new Error("Email account not found");
 
-  const repliedLeads = campaign.leads.filter((l) => l.status === "replied");
-
-  let sent = 0;
-  let failed = 0;
+  const repliedLeads = await Lead.find({ campaignId, status: "replied" });
+  let sent = 0,
+    failed = 0;
 
   for (const lead of repliedLeads) {
     try {
-      // Get their reply from Algolia
       const reply = await getLeadReplyFromAlgolia(
         lead.email,
         account._id.toString(),
       );
-      if (!reply) {
-        failed++;
-        continue;
-      }
+      if (!reply || reply.category !== "Interested") continue;
 
-      // Only auto-reply to Interested
-      if (reply.category !== "Interested") continue;
-
-      // Generate AI reply
       const aiReply = await generateCampaignReply(campaignId, reply.text);
       if (!aiReply) {
         failed++;
         continue;
       }
 
-      // Send it
       await sendReplyEmail(account, lead.email, reply.subject, aiReply);
-
-      // Mark lead as opted-out of further sequence (they replied, we replied back)
-      await Campaign.updateOne(
-        { _id: campaignId, "leads.email": lead.email },
-        { $set: { "leads.$.status": "opted-out" } },
-      );
-
+      await Lead.findByIdAndUpdate(lead._id, { $set: { status: "responded" } });
       sent++;
-    } catch (err: any) {
-      console.error(`Failed to auto-reply to ${lead.email}:`, err.message);
+    } catch {
       failed++;
     }
   }
@@ -148,7 +124,7 @@ export const autoReplyInterested = async (
   return { sent, failed };
 };
 
-// ── Get AI draft for a single lead (for one-by-one review) ────────────────────
+// ── Get AI draft for single lead ──────────────────────────────────────────────
 export const getDraftReply = async (
   campaignId: string,
   userId: string,
@@ -172,7 +148,7 @@ export const getDraftReply = async (
   return { draft, subject: reply.subject, category: reply.category };
 };
 
-// ── Send a single reply (after review) ────────────────────────────────────────
+// ── Send single reviewed reply ────────────────────────────────────────────────
 export const sendSingleReply = async (
   campaignId: string,
   userId: string,
@@ -188,18 +164,18 @@ export const sendSingleReply = async (
 
   await sendReplyEmail(account, leadEmail, subject, body);
 
-  await Campaign.updateOne(
-    { _id: campaignId, "leads.email": leadEmail },
-    { $set: { "leads.$.status": "opted-out" } },
+  await Lead.findOneAndUpdate(
+    { campaignId, email: leadEmail },
+    { $set: { status: "responded" } },
   );
 };
 
-// ── Bulk mark leads ───────────────────────────────────────────────────────────
+// ── Bulk mark leads by category ───────────────────────────────────────────────
 export const bulkMarkLeads = async (
   campaignId: string,
   userId: string,
   category: string,
-  newStatus: "opted-out" | "contacted",
+  newStatus: "opted-out" | "contacted" | "responded",
 ): Promise<{ updated: number }> => {
   const campaign = await Campaign.findOne({ _id: campaignId, user: userId });
   if (!campaign) throw new Error("Campaign not found");
@@ -207,7 +183,7 @@ export const bulkMarkLeads = async (
   const account = await EmailAccount.findById(campaign.emailAccount);
   if (!account) throw new Error("Email account not found");
 
-  const repliedLeads = campaign.leads.filter((l) => l.status === "replied");
+  const repliedLeads = await Lead.find({ campaignId, status: "replied" });
   let updated = 0;
 
   for (const lead of repliedLeads) {
@@ -216,11 +192,7 @@ export const bulkMarkLeads = async (
       account._id.toString(),
     );
     if (!reply || reply.category !== category) continue;
-
-    await Campaign.updateOne(
-      { _id: campaignId, "leads.email": lead.email },
-      { $set: { "leads.$.status": newStatus } },
-    );
+    await Lead.findByIdAndUpdate(lead._id, { $set: { status: newStatus } });
     updated++;
   }
 

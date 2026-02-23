@@ -8,6 +8,7 @@ import {
   deleteCampaignController,
   setCampaignStatusController,
   uploadLeadsController,
+  getCampaignLeadsController,
 } from "../controller/campaign.controller";
 import {
   saveCampaignContextController,
@@ -21,12 +22,14 @@ import {
   bulkMarkLeadsController,
 } from "../controller/smartReply.controller";
 import { getLeadThreadController } from "../controller/leadThread.controller";
+import { getCampaignStatsController } from "../controller/campaignStats.controller";
 
 const campaignRouter = Router();
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 campaignRouter.post("/", authMiddleware, createCampaignController);
 campaignRouter.get("/", authMiddleware, getCampaignsController);
+campaignRouter.get("/stats", authMiddleware, getCampaignStatsController); // ← before /:id
 campaignRouter.get("/:id", authMiddleware, getCampaignController);
 campaignRouter.put("/:id", authMiddleware, updateCampaignController);
 campaignRouter.delete("/:id", authMiddleware, deleteCampaignController);
@@ -40,6 +43,7 @@ campaignRouter.patch(
 
 // ── Leads ─────────────────────────────────────────────────────────────────────
 campaignRouter.post("/:id/leads", authMiddleware, uploadLeadsController);
+campaignRouter.get("/:id/leads", authMiddleware, getCampaignLeadsController);
 
 // ── Context ───────────────────────────────────────────────────────────────────
 campaignRouter.get(

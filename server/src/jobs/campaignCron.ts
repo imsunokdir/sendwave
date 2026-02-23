@@ -1,83 +1,96 @@
 import cron from "node-cron";
+import { Queue } from "bullmq";
+import redisConnection from "../config/redis";
 import { Campaign } from "../models/campaign.model";
-import { campaignQueue } from "../queues/campaignQueue";
+import { Lead } from "../models/lead.model";
+
+const campaignQueue = new Queue("campaign-sender", {
+  connection: redisConnection,
+});
 
 export const startCampaignCron = () => {
-  // Runs every minute
-  cron.schedule("* * * * *", async () => {
-    console.log(
-      "📅 Campaign cron triggered: checking leads due for sending...",
-    );
-
+  cron.schedule("*/15 * * * *", async () => {
     try {
       const now = new Date();
-
-      // Convert to IST
       const istOffset = 5.5 * 60 * 60 * 1000;
       const istTime = new Date(now.getTime() + istOffset);
-
       const currentHour = istTime.getUTCHours();
       const currentMinute = istTime.getUTCMinutes();
       const currentDay = istTime.getUTCDay();
 
       const campaigns = await Campaign.find({ status: "active" });
-      console.log(`Found ${campaigns.length} active campaigns`);
 
       for (const campaign of campaigns) {
-        const { sendHour, sendDays, sendMinute = 0 } = campaign.schedule;
+        const { sendHour, sendMinute = 0, sendDays } = campaign.schedule;
 
-        // Day check
         if (!sendDays.includes(currentDay)) continue;
-
-        // Hour check
         if (currentHour !== sendHour) continue;
+        if (Math.abs(currentMinute - sendMinute) > 7) continue;
 
-        // Minute window (±1 min tolerance)
-        if (Math.abs(currentMinute - sendMinute) > 1) continue;
+        // Process leads in batches of 100
+        let page = 0;
+        const batchSize = 100;
 
-        for (const lead of campaign.leads) {
-          if (["replied", "opted-out", "failed"].includes(lead.status))
-            continue;
+        while (true) {
+          const leads = await Lead.find({
+            campaignId: campaign._id,
+            status: { $in: ["pending", "contacted"] },
+          })
+            .skip(page * batchSize)
+            .limit(batchSize)
+            .lean();
 
-          const nextStepIndex =
-            lead.currentStep === 0 && lead.status === "pending"
-              ? 0
-              : lead.currentStep + 1;
+          if (leads.length === 0) break;
 
-          const nextStep = campaign.steps.find(
-            (s) => s.order === nextStepIndex,
-          );
-          if (!nextStep) continue;
+          for (const lead of leads) {
+            // Skip if already contacted today (IST)
+            if (lead.lastContactedAt) {
+              const lastContactIST = new Date(
+                new Date(lead.lastContactedAt).getTime() + istOffset,
+              );
+              const todayIST = new Date(istTime);
+              if (
+                lastContactIST.getUTCFullYear() === todayIST.getUTCFullYear() &&
+                lastContactIST.getUTCMonth() === todayIST.getUTCMonth() &&
+                lastContactIST.getUTCDate() === todayIST.getUTCDate()
+              )
+                continue;
+            }
 
-          if (lead.lastContactedAt) {
-            const daysSinceContact = Math.floor(
-              (now.getTime() - new Date(lead.lastContactedAt).getTime()) /
-                (1000 * 60 * 60 * 24),
-            );
-            if (daysSinceContact < nextStep.delayDays) continue;
-          }
+            // Determine which step to send
+            const nextStep =
+              lead.status === "pending"
+                ? campaign.steps.find((s) => s.order === 0)
+                : campaign.steps.find((s) => s.order === lead.currentStep + 1);
 
-          if (lead.lastContactedAt) {
-            const lastContact = new Date(lead.lastContactedAt);
-            if (lastContact.toDateString() === istTime.toDateString()) continue;
-          }
+            if (!nextStep) continue;
 
-          await campaignQueue.add(
-            `send-${campaign._id}-${lead.email}-step${nextStepIndex}`,
-            {
+            // Check delay for follow-up steps
+            if (nextStep.order > 0 && lead.lastContactedAt) {
+              const daysSince = Math.floor(
+                (now.getTime() - new Date(lead.lastContactedAt).getTime()) /
+                  (1000 * 60 * 60 * 24),
+              );
+              if (daysSince < nextStep.delayDays) continue;
+            }
+
+            await campaignQueue.add("send-email", {
               campaignId: campaign._id.toString(),
-              leadEmail: lead.email,
-              stepIndex: nextStepIndex,
-            },
-          );
+              leadId: lead._id.toString(),
+              stepIndex: nextStep.order,
+            });
+          }
 
-          console.log(`📨 Queued step ${nextStepIndex} for ${lead.email}`);
+          if (leads.length < batchSize) break;
+          page++;
         }
+
+        console.log(`📅 Queued emails for campaign "${campaign.name}"`);
       }
-    } catch (err) {
-      console.error("❌ Campaign cron error:", err);
+    } catch (err: any) {
+      console.error("❌ Campaign cron error:", err.message);
     }
   });
 
-  console.log("📅 Campaign cron started! Runs every minute.");
+  console.log("⏰ Campaign cron started!");
 };

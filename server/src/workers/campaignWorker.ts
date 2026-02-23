@@ -2,6 +2,7 @@ import { Worker, Job } from "bullmq";
 import nodemailer from "nodemailer";
 import redisConnection from "../config/redis";
 import { Campaign } from "../models/campaign.model";
+import { Lead } from "../models/lead.model";
 import { EmailAccount } from "../models/emailAccounts.model";
 import { decrypt } from "../utility/encryptionUtility";
 
@@ -9,12 +10,11 @@ export const startCampaignWorker = () => {
   const worker = new Worker(
     "campaign-sender",
     async (job: Job) => {
-      const { campaignId, leadEmail, stepIndex } = job.data;
+      const { campaignId, leadId, stepIndex } = job.data;
       console.log(
-        `📤 Sending step ${stepIndex} to ${leadEmail} for campaign ${campaignId}`,
+        `📤 Sending step ${stepIndex} for lead ${leadId} in campaign ${campaignId}`,
       );
 
-      // ── Fetch campaign ──────────────────────────────────────────────────────
       const campaign = await Campaign.findById(campaignId);
       if (!campaign) throw new Error(`Campaign ${campaignId} not found`);
       if (campaign.status !== "active") {
@@ -22,59 +22,56 @@ export const startCampaignWorker = () => {
         return;
       }
 
-      // ── Fetch the sending email account ─────────────────────────────────────
       const account = await EmailAccount.findById(campaign.emailAccount);
       if (!account)
         throw new Error(`Email account not found for campaign ${campaignId}`);
 
-      // ── Find the lead ───────────────────────────────────────────────────────
-      const lead = campaign.leads.find((l) => l.email === leadEmail);
-      if (!lead) throw new Error(`Lead ${leadEmail} not found`);
-      if (lead.status === "replied" || lead.status === "opted-out") {
-        console.log(`⏭ Skipping ${leadEmail} — status: ${lead.status}`);
+      const lead = await Lead.findById(leadId);
+      if (!lead) throw new Error(`Lead ${leadId} not found`);
+      if (
+        lead.status === "replied" ||
+        lead.status === "opted-out" ||
+        lead.status === "responded"
+      ) {
+        console.log(`⏭ Skipping ${lead.email} — status: ${lead.status}`);
         return;
       }
 
-      // ── Get the step ────────────────────────────────────────────────────────
       const step = campaign.steps.find((s) => s.order === stepIndex);
       if (!step) throw new Error(`Step ${stepIndex} not found`);
 
-      // ── Send email via SMTP ─────────────────────────────────────────────────
       const password = decrypt(account.passwordEnc);
-
       const transporter = nodemailer.createTransport({
-        host: account.imapHost.replace("imap.", "smtp."), // derive SMTP from IMAP host
+        host: account.imapHost.replace("imap.", "smtp."),
         port: 465,
         secure: true,
-        auth: {
-          user: account.email,
-          pass: password,
-        },
+        auth: { user: account.email, pass: password },
       });
 
       await transporter.sendMail({
         from: account.email,
-        to: leadEmail,
+        to: lead.email,
         subject: step.subject,
         text: step.body,
       });
 
-      console.log(`✅ Sent step ${stepIndex} to ${leadEmail}`);
+      console.log(`✅ Sent step ${stepIndex} to ${lead.email}`);
 
-      // ── Update lead status ──────────────────────────────────────────────────
-      await Campaign.updateOne(
-        { _id: campaignId, "leads.email": leadEmail },
-        {
-          $set: {
-            "leads.$.status": "contacted",
-            "leads.$.currentStep": stepIndex,
-            "leads.$.lastContactedAt": new Date(),
-          },
-          $inc: { "stats.sent": 1 },
+      // Update lead status
+      await Lead.findByIdAndUpdate(leadId, {
+        $set: {
+          status: "contacted",
+          currentStep: stepIndex,
+          lastContactedAt: new Date(),
         },
-      );
+      });
+
+      // Increment campaign sent stat
+      await Campaign.findByIdAndUpdate(campaignId, {
+        $inc: { "stats.sent": 1 },
+      });
     },
-    { connection: redisConnection },
+    { connection: redisConnection, concurrency: 5 },
   );
 
   worker.on("completed", (job) =>
@@ -82,13 +79,13 @@ export const startCampaignWorker = () => {
   );
   worker.on("failed", async (job, err) => {
     console.error(`❌ Campaign job ${job?.id} failed:`, err.message);
-
-    if (job?.data) {
-      const { campaignId, leadEmail } = job.data;
-      await Campaign.updateOne(
-        { _id: campaignId, "leads.email": leadEmail },
-        { $set: { "leads.$.status": "failed" }, $inc: { "stats.failed": 1 } },
-      );
+    if (job?.data?.leadId) {
+      await Lead.findByIdAndUpdate(job.data.leadId, {
+        $set: { status: "failed" },
+      });
+      await Campaign.findByIdAndUpdate(job.data.campaignId, {
+        $inc: { "stats.failed": 1 },
+      });
     }
   });
 

@@ -1,9 +1,11 @@
 import type { Request, Response } from "express";
 import { Campaign } from "../models/campaign.model";
+import { Lead } from "../models/lead.model";
 import { EmailAccount } from "../models/emailAccounts.model";
 import { client } from "../config/algoliaClient";
 
 export const getLeadThreadController = async (req: Request, res: Response) => {
+  console.log("hey");
   try {
     const { id } = req.params;
     const { leadEmail } = req.query;
@@ -19,17 +21,17 @@ export const getLeadThreadController = async (req: Request, res: Response) => {
     if (!account)
       return res.status(404).json({ message: "Email account not found" });
 
-    const lead = campaign.leads.find((l) => l.email === leadEmail);
+    const lead = await Lead.findOne({
+      campaignId: id,
+      email: leadEmail,
+    }).lean();
     if (!lead) return res.status(404).json({ message: "Lead not found" });
 
-    // Get the step that was last sent to this lead
-    const sentStepIndex = lead.status === "pending" ? null : lead.currentStep;
     const sentStep =
-      sentStepIndex !== null
-        ? campaign.steps.find((s) => s.order === sentStepIndex)
+      lead.status !== "pending"
+        ? campaign.steps.find((s) => s.order === lead.currentStep)
         : null;
 
-    // Fetch ALL replies from this lead — sorted by date ascending
     let replies: any[] = [];
     try {
       const results = await client.searchSingleIndex({
@@ -44,12 +46,10 @@ export const getLeadThreadController = async (req: Request, res: Response) => {
             "category",
             "date",
             "snippet",
-            "from",
           ],
         },
       });
 
-      // Sort by date ascending so conversation flows naturally
       replies = (results.hits as any[])
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         .map((hit) => ({
@@ -78,7 +78,7 @@ export const getLeadThreadController = async (req: Request, res: Response) => {
             sentAt: lead.lastContactedAt,
           }
         : null,
-      replies, // array of all replies, sorted oldest first
+      replies,
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
