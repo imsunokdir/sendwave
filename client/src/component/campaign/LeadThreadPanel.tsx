@@ -70,6 +70,7 @@ export default function LeadThreadPanel({
         const res = await api.get(`/campaigns/${campaignId}/thread`, {
           params: { leadEmail },
         });
+        console.log("Res:", res);
         setThread(res.data);
       } catch {
         setError("Failed to load thread.");

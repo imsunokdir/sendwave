@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import HomePage from "../pages/HomePage";
 import EmailDetailPage from "../pages/EmailDetailPage";
 import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
@@ -10,6 +9,7 @@ import SettingsPage from "../pages/SettingsPage";
 import ProfilePage from "../pages/ProfilePage";
 import NewCampaignPage from "../pages/NewCampaignPage";
 import CampaignDetailPage from "../pages/CampaignDetailPage";
+import HomePage from "../pages/HomePage";
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();

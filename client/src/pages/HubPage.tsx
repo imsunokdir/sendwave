@@ -1,13 +1,11 @@
 import { useState } from "react";
-import { Mail, Send, RefreshCw } from "lucide-react";
+import { Mail, Send } from "lucide-react";
 import EmailAccounts from "../component/hub/EmailAccounts";
 import CampaignList from "../component/campaign/CampaignList";
-import ManualSync from "../component/hub/ManualSync";
 
 const TABS = [
   { id: "accounts", label: "Email Accounts", icon: <Mail size={15} /> },
   { id: "outreach", label: "Outreach", icon: <Send size={15} /> },
-  { id: "sync", label: "Manual Sync", icon: <RefreshCw size={15} /> },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -78,7 +76,7 @@ export default function HubPage() {
               marginLeft: 50,
             }}
           >
-            Manage accounts, outreach campaigns and sync.
+            Manage your email accounts and outreach campaigns.
           </p>
         </div>
 
@@ -130,7 +128,6 @@ export default function HubPage() {
         <div key={activeTab} className="hub-fade">
           {activeTab === "accounts" && <EmailAccounts />}
           {activeTab === "outreach" && <CampaignList />}
-          {activeTab === "sync" && <ManualSync />}
         </div>
       </div>
     </div>

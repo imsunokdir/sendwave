@@ -8,18 +8,27 @@ export interface CampaignStep {
   body: string;
 }
 
-export interface Lead {
-  email: string;
-  status: "pending" | "contacted" | "replied" | "opted-out" | "failed";
-  currentStep: number;
-  lastContactedAt?: string;
-}
+// export interface Lead {
+//   email: string;
+//   status: "pending" | "contacted" | "replied" | "opted-out" | "failed";
+//   currentStep: number;
+//   lastContactedAt?: string;
+// }
 
 export interface CampaignSchedule {
   timezone: string;
   sendHour: number;
   sendMinute: number;
   sendDays: number[];
+}
+
+export interface Lead {
+  _id: string; // ← add this
+  email: string;
+  status: string;
+  currentStep: number;
+  lastContactedAt?: string;
+  repliedAt?: string;
 }
 
 export interface Campaign {
@@ -54,19 +63,21 @@ export interface CampaignContextItem {
 // ─── Campaign ─────────────────────────────────────────────────────────────────
 export const getCampaignsService = async (): Promise<Campaign[]> => {
   const res = await api.get("/campaigns");
-  return res.data.campaigns;
+  return res.data;
 };
 
 export const getCampaignService = async (id: string): Promise<Campaign> => {
   const res = await api.get(`/campaigns/${id}`);
-  return res.data.campaign;
+  console.log("res:", res.data);
+  return res.data;
 };
 
 export const createCampaignService = async (
   data: CreateCampaignPayload,
 ): Promise<Campaign> => {
   const res = await api.post("/campaigns", data);
-  return res.data.campaign;
+  console.log("res data c:", res);
+  return res.data;
 };
 
 export const updateCampaignService = async (
@@ -74,7 +85,7 @@ export const updateCampaignService = async (
   data: Partial<CreateCampaignPayload>,
 ): Promise<Campaign> => {
   const res = await api.put(`/campaigns/${id}`, data);
-  return res.data.campaign;
+  return res.data;
 };
 
 export const deleteCampaignService = async (id: string): Promise<void> => {
@@ -86,7 +97,8 @@ export const setCampaignStatusService = async (
   status: Campaign["status"],
 ): Promise<Campaign> => {
   const res = await api.patch(`/campaigns/${id}/status`, { status });
-  return res.data.campaign;
+  console.log("res: for stta:", res);
+  return res.data;
 };
 
 export const uploadLeadsService = async (
@@ -117,4 +129,16 @@ export const deleteCampaignContextService = async (
   contextId: string,
 ): Promise<void> => {
   await api.delete(`/campaigns/${id}/context/${contextId}`);
+};
+
+export const getCampaignLeadsService = async (
+  id: string,
+  page: number = 1,
+  limit: number = 50,
+  status: string = "all",
+) => {
+  const res = await api.get(`/campaigns/${id}/leads`, {
+    params: { page, limit, status },
+  });
+  return res.data; // { leads, total, page, totalPages, hasMore }
 };

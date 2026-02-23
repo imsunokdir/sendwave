@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -18,6 +18,8 @@ import {
   Plus,
   Trash2,
   Brain,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   getCampaignService,
@@ -27,6 +29,7 @@ import {
   getCampaignContextService,
   saveCampaignContextService,
   deleteCampaignContextService,
+  getCampaignLeadsService,
 } from "../services/campaignService";
 import type {
   Campaign,
@@ -54,6 +57,7 @@ const leadStatusIcon: Record<string, React.ReactNode> = {
   pending: <Clock size={13} color="#9ca3af" />,
   contacted: <Send size={13} color="#6366f1" />,
   replied: <CheckCircle size={13} color="#22c55e" />,
+  responded: <CheckCircle size={13} color="#3b82f6" />,
   "opted-out": <XCircle size={13} color="#f59e0b" />,
   failed: <AlertCircle size={13} color="#ef4444" />,
 };
@@ -62,6 +66,7 @@ const leadStatusColor: Record<string, string> = {
   pending: "#9ca3af",
   contacted: "#6366f1",
   replied: "#22c55e",
+  responded: "#3b82f6",
   "opted-out": "#f59e0b",
   failed: "#ef4444",
 };
@@ -148,19 +153,29 @@ const inputStyle: React.CSSProperties = {
   transition: "border-color .15s",
 };
 
+const LEADS_PER_PAGE = 50;
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [threadLead, setThreadLead] = useState<string | null>(null);
 
+  // ── Campaign ───────────────────────────────────────────────────────────────
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [error, setError] = useState("");
+  const [threadLead, setThreadLead] = useState<string | null>(null);
+
+  // ── Leads (paginated) ──────────────────────────────────────────────────────
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(true);
+  const [leadsPage, setLeadsPage] = useState(1);
+  const [leadsTotal, setLeadsTotal] = useState(0);
+  const [leadsTotalPages, setLeadsTotalPages] = useState(1);
   const [leadFilter, setLeadFilter] = useState("all");
 
-  // ── Edit campaign details ──────────────────────────────────────────────────
+  // ── Edit ───────────────────────────────────────────────────────────────────
   const [editingDetails, setEditingDetails] = useState(false);
   const [editName, setEditName] = useState("");
   const [editSteps, setEditSteps] = useState<Campaign["steps"]>([]);
@@ -190,7 +205,7 @@ export default function CampaignDetailPage() {
     skipped: number;
   } | null>(null);
 
-  // ── Load ───────────────────────────────────────────────────────────────────
+  // ── Load campaign ──────────────────────────────────────────────────────────
   const load = async () => {
     try {
       const data = await getCampaignService(id!);
@@ -204,6 +219,29 @@ export default function CampaignDetailPage() {
       setIsLoading(false);
     }
   };
+
+  // ── Load leads (paginated) ─────────────────────────────────────────────────
+  const loadLeads = useCallback(
+    async (page: number, status: string) => {
+      setLeadsLoading(true);
+      try {
+        const data = await getCampaignLeadsService(
+          id!,
+          page,
+          LEADS_PER_PAGE,
+          status,
+        );
+        setLeads(data.leads);
+        setLeadsTotal(data.total);
+        setLeadsTotalPages(data.totalPages);
+      } catch {
+        // fail silently
+      } finally {
+        setLeadsLoading(false);
+      }
+    },
+    [id],
+  );
 
   const loadContext = async () => {
     setContextLoading(true);
@@ -221,6 +259,15 @@ export default function CampaignDetailPage() {
     load();
     loadContext();
   }, [id]);
+  useEffect(() => {
+    loadLeads(leadsPage, leadFilter);
+  }, [leadsPage, leadFilter, loadLeads]);
+
+  // ── Filter change resets to page 1 ────────────────────────────────────────
+  const handleFilterChange = (f: string) => {
+    setLeadFilter(f);
+    setLeadsPage(1);
+  };
 
   // ── Toggle status ──────────────────────────────────────────────────────────
   const handleToggle = async () => {
@@ -261,7 +308,7 @@ export default function CampaignDetailPage() {
     }
   };
 
-  // ── Context actions ────────────────────────────────────────────────────────
+  // ── Context ────────────────────────────────────────────────────────────────
   const handleAddContext = async () => {
     const trimmed = contextText.trim();
     if (!trimmed) return;
@@ -308,7 +355,9 @@ export default function CampaignDetailPage() {
       setLeadsResult(result);
       setLeadsRaw("");
       setLeadCount(0);
-      await load(); // refresh to show updated lead count
+      await load();
+      await loadLeads(1, leadFilter);
+      setLeadsPage(1);
     } catch {
       setError("Failed to upload leads.");
     } finally {
@@ -316,7 +365,7 @@ export default function CampaignDetailPage() {
     }
   };
 
-  // ── Loading/error states ───────────────────────────────────────────────────
+  // ── Loading / error ────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div
@@ -380,13 +429,11 @@ export default function CampaignDetailPage() {
   }
 
   const s = statusStyle[campaign.status] ?? statusStyle.draft;
-  const leads = campaign.leads ?? [];
-  const filteredLeads =
-    leadFilter === "all" ? leads : leads.filter((l) => l.status === leadFilter);
   const replyRate =
     campaign.stats.sent > 0
       ? Math.round((campaign.stats.replied / campaign.stats.sent) * 100)
       : 0;
+  const repliedLeads = leads.filter((l) => l.status === "replied");
 
   return (
     <>
@@ -399,9 +446,9 @@ export default function CampaignDetailPage() {
         }}
       >
         <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
+          @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+          @keyframes spin { to { transform: rotate(360deg); } }
+        `}</style>
 
         <div style={{ maxWidth: 700, margin: "0 auto" }}>
           {/* ── Back ── */}
@@ -480,7 +527,8 @@ export default function CampaignDetailPage() {
                 {campaign.steps.length !== 1 ? "s" : ""} ·{" "}
                 {campaign.schedule.sendDays.length} send day
                 {campaign.schedule.sendDays.length !== 1 ? "s" : ""} ·{" "}
-                {campaign.schedule.sendHour}:00 UTC
+                {campaign.schedule.sendHour}:
+                {String(campaign.schedule.sendMinute ?? 0).padStart(2, "0")}
               </p>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -498,7 +546,6 @@ export default function CampaignDetailPage() {
                   fontSize: 12,
                   fontWeight: 500,
                   cursor: "pointer",
-                  transition: "all .15s",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = "#6366f1";
@@ -528,7 +575,6 @@ export default function CampaignDetailPage() {
                     fontSize: 12,
                     fontWeight: 600,
                     cursor: toggling ? "default" : "pointer",
-                    transition: "all .15s",
                   }}
                 >
                   {toggling ? (
@@ -555,7 +601,7 @@ export default function CampaignDetailPage() {
             </div>
           </div>
 
-          {/* ── Edit details panel ── */}
+          {/* ── Edit panel ── */}
           {editingDetails && (
             <div
               style={{
@@ -593,8 +639,6 @@ export default function CampaignDetailPage() {
                   <X size={16} />
                 </button>
               </div>
-
-              {/* Name */}
               <div style={{ marginBottom: 14 }}>
                 <label
                   style={{
@@ -621,8 +665,6 @@ export default function CampaignDetailPage() {
                   }
                 />
               </div>
-
-              {/* Schedule */}
               <div style={{ marginBottom: 14 }}>
                 <label
                   style={{
@@ -642,8 +684,6 @@ export default function CampaignDetailPage() {
                   onChange={setEditSchedule}
                 />
               </div>
-
-              {/* Steps */}
               <div style={{ marginBottom: 16 }}>
                 <label
                   style={{
@@ -660,8 +700,6 @@ export default function CampaignDetailPage() {
                 </label>
                 <StepBuilder steps={editSteps} onChange={setEditSteps} />
               </div>
-
-              {/* Save */}
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={handleSaveDetails}
@@ -782,7 +820,6 @@ export default function CampaignDetailPage() {
                 ({contextItems.length})
               </span>
             </div>
-
             <div
               style={{
                 padding: "14px 18px",
@@ -791,7 +828,6 @@ export default function CampaignDetailPage() {
                 gap: 10,
               }}
             >
-              {/* Add context input */}
               <textarea
                 value={contextText}
                 onChange={(e) => setContextText(e.target.value)}
@@ -856,8 +892,6 @@ export default function CampaignDetailPage() {
                   Add
                 </button>
               </div>
-
-              {/* Context list */}
               {contextLoading && (
                 <div
                   style={{
@@ -965,7 +999,6 @@ export default function CampaignDetailPage() {
                           color: "#9ca3af",
                           display: "flex",
                           flexShrink: 0,
-                          transition: "color .15s",
                         }}
                         onMouseEnter={(e) =>
                           (e.currentTarget.style.color = "#ef4444")
@@ -1097,7 +1130,6 @@ export default function CampaignDetailPage() {
                 {showAddLeads ? "▲ collapse" : "▼ expand"}
               </span>
             </div>
-
             {showAddLeads && (
               <div
                 style={{
@@ -1181,10 +1213,14 @@ export default function CampaignDetailPage() {
             )}
           </div>
 
+          {/* ── Smart reply ── */}
           <SmartReplyPanel
             campaignId={campaign._id}
-            repliedLeads={leads.filter((l) => l.status === "replied")}
-            onDone={load}
+            repliedLeads={repliedLeads}
+            onDone={() => {
+              load();
+              loadLeads(leadsPage, leadFilter);
+            }}
           />
 
           {/* ── Leads ── */}
@@ -1197,6 +1233,7 @@ export default function CampaignDetailPage() {
               boxShadow: "0 1px 3px rgba(0,0,0,.05)",
             }}
           >
+            {/* Header */}
             <div
               style={{
                 padding: "12px 18px",
@@ -1211,7 +1248,7 @@ export default function CampaignDetailPage() {
                 Leads
               </span>
               <span style={{ fontSize: 11, color: "#9ca3af" }}>
-                ({leads.length})
+                ({leadsTotal})
               </span>
               <div
                 style={{
@@ -1223,36 +1260,59 @@ export default function CampaignDetailPage() {
                   padding: 3,
                 }}
               >
-                {["all", "pending", "contacted", "replied", "failed"].map(
-                  (f) => (
-                    <button
-                      key={f}
-                      onClick={() => setLeadFilter(f)}
-                      style={{
-                        padding: "4px 10px",
-                        border: "none",
-                        borderRadius: 6,
-                        fontSize: 11,
-                        fontWeight: leadFilter === f ? 600 : 400,
-                        background: leadFilter === f ? "#fff" : "transparent",
-                        color: leadFilter === f ? "#111827" : "#9ca3af",
-                        cursor: "pointer",
-                        textTransform: "capitalize",
-                        boxShadow:
-                          leadFilter === f
-                            ? "0 1px 3px rgba(0,0,0,.08)"
-                            : "none",
-                        transition: "all .15s",
-                      }}
-                    >
-                      {f}
-                    </button>
-                  ),
-                )}
+                {[
+                  "all",
+                  "pending",
+                  "contacted",
+                  "replied",
+                  "responded",
+                  "failed",
+                ].map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => handleFilterChange(f)}
+                    style={{
+                      padding: "4px 10px",
+                      border: "none",
+                      borderRadius: 6,
+                      fontSize: 11,
+                      fontWeight: leadFilter === f ? 600 : 400,
+                      background: leadFilter === f ? "#fff" : "transparent",
+                      color: leadFilter === f ? "#111827" : "#9ca3af",
+                      cursor: "pointer",
+                      textTransform: "capitalize",
+                      boxShadow:
+                        leadFilter === f ? "0 1px 3px rgba(0,0,0,.08)" : "none",
+                      transition: "all .15s",
+                    }}
+                  >
+                    {f}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {filteredLeads.length === 0 ? (
+            {/* Lead rows */}
+            {leadsLoading ? (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  padding: "32px 0",
+                }}
+              >
+                <div
+                  style={{
+                    width: 22,
+                    height: 22,
+                    border: "3px solid #e5e7eb",
+                    borderTopColor: "#6366f1",
+                    borderRadius: "50%",
+                    animation: "spin .7s linear infinite",
+                  }}
+                />
+              </div>
+            ) : leads.length === 0 ? (
               <div
                 style={{
                   padding: "32px 20px",
@@ -1264,16 +1324,14 @@ export default function CampaignDetailPage() {
                 No leads with status "{leadFilter}"
               </div>
             ) : (
-              filteredLeads.map((lead: Lead, i: number) => (
+              leads.map((lead: Lead, i: number) => (
                 <div
-                  key={lead.email}
+                  key={lead._id ?? lead.email}
                   onClick={() => setThreadLead(lead.email)}
                   style={{
                     padding: "11px 18px",
                     borderBottom:
-                      i < filteredLeads.length - 1
-                        ? "1px solid #f9fafb"
-                        : "none",
+                      i < leads.length - 1 ? "1px solid #f9fafb" : "none",
                     display: "flex",
                     alignItems: "center",
                     gap: 12,
@@ -1346,18 +1404,79 @@ export default function CampaignDetailPage() {
                 </div>
               ))
             )}
+
+            {/* Pagination */}
+            {leadsTotalPages > 1 && (
+              <div
+                style={{
+                  padding: "12px 18px",
+                  borderTop: "1px solid #f3f4f6",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span style={{ fontSize: 12, color: "#9ca3af" }}>
+                  Page {leadsPage} of {leadsTotalPages} · {leadsTotal} total
+                </span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    onClick={() => setLeadsPage((p) => Math.max(1, p - 1))}
+                    disabled={leadsPage === 1}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "6px 12px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 8,
+                      background: leadsPage === 1 ? "#f9fafb" : "#fff",
+                      color: leadsPage === 1 ? "#d1d5db" : "#374151",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      cursor: leadsPage === 1 ? "default" : "pointer",
+                    }}
+                  >
+                    <ChevronLeft size={13} /> Prev
+                  </button>
+                  <button
+                    onClick={() =>
+                      setLeadsPage((p) => Math.min(leadsTotalPages, p + 1))
+                    }
+                    disabled={leadsPage === leadsTotalPages}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "6px 12px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 8,
+                      background:
+                        leadsPage === leadsTotalPages ? "#f9fafb" : "#fff",
+                      color:
+                        leadsPage === leadsTotalPages ? "#d1d5db" : "#374151",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      cursor:
+                        leadsPage === leadsTotalPages ? "default" : "pointer",
+                    }}
+                  >
+                    Next <ChevronRight size={13} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Thread panel */}
       {threadLead && (
         <LeadThreadPanel
           campaignId={campaign._id}
           leadEmail={threadLead}
           onClose={() => setThreadLead(null)}
-          onReply={(email) => {
-            setThreadLead(null);
-            // scroll to SmartReplyPanel or open one-by-one mode
-          }}
+          onReply={() => setThreadLead(null)}
         />
       )}
     </>
