@@ -7,6 +7,31 @@ import { getLatestUID } from "../utility/imapConnect";
 //   user?: { id: string; email: string };
 // }
 
+// export const addEmailAccount = async (req: Request, res: Response) => {
+//   try {
+//     if (!req.user)
+//       return res.status(401).json({ success: false, message: "Unauthorized" });
+
+//     const { provider, email, password, imapHost, imapPort, imapTLS } = req.body;
+
+//     const account = await addEmailAccountService({
+//       userId: req.user.id,
+//       provider,
+//       email,
+//       password,
+//       imapHost,
+//       imapPort,
+//       imapTLS,
+//     });
+
+//     res.status(201).json({ success: true, account });
+//   } catch (err: any) {
+//     res.status(400).json({ success: false, message: err.message });
+//   }
+// };
+
+import { PROVIDER_IMAP_CONFIG } from "../config/providerConfig";
+
 export const addEmailAccount = async (req: Request, res: Response) => {
   try {
     if (!req.user)
@@ -14,14 +39,45 @@ export const addEmailAccount = async (req: Request, res: Response) => {
 
     const { provider, email, password, imapHost, imapPort, imapTLS } = req.body;
 
+    if (!provider || !email || !password)
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "provider, email and password are required",
+        });
+
+    const normalizedProvider = provider.toLowerCase().trim();
+
+    let imapConfig: { imapHost: string; imapPort: number; imapTLS: boolean };
+
+    if (normalizedProvider === "custom") {
+      // Custom provider — user must supply IMAP fields
+      if (!imapHost || !imapPort || imapTLS === undefined)
+        return res.status(400).json({
+          success: false,
+          message: "Custom provider requires imapHost, imapPort, and imapTLS",
+        });
+
+      imapConfig = { imapHost, imapPort, imapTLS };
+    } else {
+      // Known provider — auto-fill IMAP settings
+      const config = PROVIDER_IMAP_CONFIG[normalizedProvider];
+      if (!config)
+        return res.status(400).json({
+          success: false,
+          message: `Unsupported provider "${provider}". Use gmail, outlook, yahoo, or custom.`,
+        });
+
+      imapConfig = config;
+    }
+
     const account = await addEmailAccountService({
       userId: req.user.id,
-      provider,
+      provider: normalizedProvider,
       email,
       password,
-      imapHost,
-      imapPort,
-      imapTLS,
+      ...imapConfig,
     });
 
     res.status(201).json({ success: true, account });

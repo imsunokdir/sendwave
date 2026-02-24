@@ -93,6 +93,7 @@ export default function EmailAccounts() {
     imapTLS: true,
     provider: "gmail",
   });
+  const isCustom = form.provider === "custom";
 
   const setAccountLoading = (id: string, val: boolean) =>
     setLoadingIds((p) => {
@@ -106,10 +107,20 @@ export default function EmailAccounts() {
     setError("");
     setSubmitting(true);
     try {
-      await addEmailAccountService({
-        ...form,
-        imapPort: parseInt(form.imapPort),
-      });
+      const payload: any = {
+        provider: form.provider,
+        email: form.email,
+        password: form.password,
+      };
+
+      // Only send IMAP fields for custom provider
+      if (form.provider === "custom") {
+        payload.imapHost = form.imapHost;
+        payload.imapPort = parseInt(form.imapPort);
+        payload.imapTLS = form.imapTLS;
+      }
+
+      await addEmailAccountService(payload);
       setShowForm(false);
       setForm({
         email: "",
@@ -119,7 +130,7 @@ export default function EmailAccounts() {
         imapTLS: true,
         provider: "gmail",
       });
-      refetch(); // full refetch so new account gets server _id
+      refetch();
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to add account");
     } finally {
@@ -397,6 +408,7 @@ export default function EmailAccounts() {
       </button>
 
       {/* ── Inline form ── */}
+      {/* ── Inline form ── */}
       {showForm && (
         <div
           style={{
@@ -423,73 +435,147 @@ export default function EmailAccounts() {
             <p style={{ fontSize: 12, color: "#ef4444", margin: 0 }}>{error}</p>
           )}
 
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
+          {/* Provider dropdown — always shown first */}
+          <select
+            value={form.provider}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                provider: e.target.value,
+                imapHost: "",
+                imapPort: "993",
+                imapTLS: true,
+              })
+            }
+            style={{
+              padding: "9px 12px",
+              border: "1px solid #e5e7eb",
+              borderRadius: 9,
+              fontSize: 13,
+              outline: "none",
+              background: "#fff",
+              color: "#111827",
+            }}
           >
-            {(
-              [
-                ["email", "email", "Email address"],
-                ["password", "password", "App password"],
-                ["text", "imapHost", "IMAP host (e.g. imap.gmail.com)"],
-                ["number", "imapPort", "IMAP port (993)"],
-              ] as [string, keyof typeof form, string][]
-            ).map(([type, key, ph]) => (
+            <option value="gmail">Gmail</option>
+            <option value="outlook">Outlook</option>
+            <option value="yahoo">Yahoo</option>
+            <option value="custom">Custom / Other</option>
+          </select>
+
+          {/* Email + Password — always shown */}
+          <input
+            type="email"
+            placeholder="Email address"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            style={{
+              padding: "9px 12px",
+              border: "1px solid #e5e7eb",
+              borderRadius: 9,
+              fontSize: 13,
+              outline: "none",
+              background: "#fff",
+              color: "#111827",
+            }}
+          />
+          <input
+            type="password"
+            placeholder="App password"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            style={{
+              padding: "9px 12px",
+              border: "1px solid #e5e7eb",
+              borderRadius: 9,
+              fontSize: 13,
+              outline: "none",
+              background: "#fff",
+              color: "#111827",
+            }}
+          />
+
+          {/* IMAP fields — only shown for custom provider */}
+          {isCustom && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                padding: "10px 12px",
+                background: "#fff",
+                border: "1px solid #e5e7eb",
+                borderRadius: 10,
+              }}
+            >
+              <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
+                Custom IMAP settings
+              </p>
               <input
-                key={key}
-                type={type}
-                placeholder={ph}
-                value={form[key] as string}
-                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                type="text"
+                placeholder="IMAP host (e.g. imap.yourcompany.com)"
+                value={form.imapHost}
+                onChange={(e) => setForm({ ...form, imapHost: e.target.value })}
                 style={{
                   padding: "9px 12px",
                   border: "1px solid #e5e7eb",
                   borderRadius: 9,
                   fontSize: 13,
                   outline: "none",
-                  background: "#fff",
+                  background: "#f9fafb",
                   color: "#111827",
-                  gridColumn: key === "imapHost" ? "span 2" : undefined,
                 }}
               />
-            ))}
-            <select
-              value={form.provider}
-              onChange={(e) => setForm({ ...form, provider: e.target.value })}
-              style={{
-                padding: "9px 12px",
-                border: "1px solid #e5e7eb",
-                borderRadius: 9,
-                fontSize: 13,
-                outline: "none",
-                background: "#fff",
-                color: "#111827",
-              }}
-            >
-              <option value="gmail">Gmail</option>
-              <option value="outlook">Outlook</option>
-              <option value="yahoo">Yahoo</option>
-              <option value="other">Other</option>
-            </select>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 13,
-                color: "#6b7280",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={form.imapTLS}
-                onChange={(e) =>
-                  setForm({ ...form, imapTLS: e.target.checked })
-                }
-                style={{ width: 15, height: 15, accentColor: "#6366f1" }}
-              />
-              Use TLS/SSL
-            </label>
-          </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <input
+                  type="number"
+                  placeholder="Port (993)"
+                  value={form.imapPort}
+                  onChange={(e) =>
+                    setForm({ ...form, imapPort: e.target.value })
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "9px 12px",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 9,
+                    fontSize: 13,
+                    outline: "none",
+                    background: "#f9fafb",
+                    color: "#111827",
+                  }}
+                />
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 13,
+                    color: "#6b7280",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.imapTLS}
+                    onChange={(e) =>
+                      setForm({ ...form, imapTLS: e.target.checked })
+                    }
+                    style={{ width: 15, height: 15, accentColor: "#6366f1" }}
+                  />
+                  Use TLS/SSL
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Helper text for known providers */}
+          {!isCustom && (
+            <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
+              ✓ IMAP settings for{" "}
+              {form.provider.charAt(0).toUpperCase() + form.provider.slice(1)}{" "}
+              will be configured automatically.
+            </p>
+          )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
             <button

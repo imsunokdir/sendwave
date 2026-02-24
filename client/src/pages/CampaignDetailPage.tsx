@@ -30,6 +30,8 @@ import {
   saveCampaignContextService,
   deleteCampaignContextService,
   getCampaignLeadsService,
+  updateReplyRulesService,
+  triggerAutoReplyService,
 } from "../services/campaignService";
 import type {
   Campaign,
@@ -159,6 +161,203 @@ const inputStyle: React.CSSProperties = {
 };
 
 const LEADS_PER_PAGE = 50;
+
+const CATEGORIES = [
+  { key: "Interested", emoji: "✅", color: "#22c55e", canSend: true },
+  { key: "Meeting Booked", emoji: "📅", color: "#3b82f6", canSend: true },
+  { key: "Out of Office", emoji: "🏖️", color: "#f59e0b", canSend: true },
+  { key: "Not Interested", emoji: "❌", color: "#9ca3af", canSend: false },
+  { key: "Spam", emoji: "🚫", color: "#ef4444", canSend: false },
+];
+
+function ReplyRulesPanel({
+  campaignId,
+  replyRules,
+  onUpdate,
+}: {
+  campaignId: string;
+  replyRules: Record<string, boolean>;
+  onUpdate: () => void;
+}) {
+  const [togglingKey, setTogglingKey] = useState<string | null>(null);
+  const [sendingKey, setSendingKey] = useState<string | null>(null);
+  const [sentKey, setSentKey] = useState<string | null>(null);
+
+  const handleToggle = async (category: string, current: boolean) => {
+    setTogglingKey(category);
+    try {
+      await updateReplyRulesService(campaignId, category, !current);
+      onUpdate();
+    } catch {
+      console.error("Failed to update reply rule");
+    } finally {
+      setTogglingKey(null);
+    }
+  };
+
+  const handleSendNow = async (category: string) => {
+    setSendingKey(category);
+    try {
+      await triggerAutoReplyService(campaignId, category);
+      setSentKey(category);
+      setTimeout(() => setSentKey(null), 3000);
+    } catch {
+      console.error("Failed to trigger auto reply");
+    } finally {
+      setSendingKey(null);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #e5e7eb",
+        borderRadius: 14,
+        overflow: "hidden",
+        marginBottom: 12,
+        boxShadow: "0 1px 3px rgba(0,0,0,.05)",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          padding: "12px 18px",
+          borderBottom: "1px solid #f3f4f6",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <Zap size={13} color="#6366f1" />
+        <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+          Auto Reply Rules
+        </span>
+        <span style={{ fontSize: 11, color: "#9ca3af" }}>per category</span>
+      </div>
+
+      {/* Rows */}
+      <div style={{ padding: "8px 0" }}>
+        {CATEGORIES.map((cat) => {
+          const enabled = replyRules?.[cat.key] ?? false;
+          const toggling = togglingKey === cat.key;
+          const sending = sendingKey === cat.key;
+          const sent = sentKey === cat.key;
+
+          return (
+            <div
+              key={cat.key}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 18px",
+                borderBottom: "1px solid #f9fafb",
+              }}
+            >
+              {/* Category label */}
+              <span style={{ fontSize: 15 }}>{cat.emoji}</span>
+              <span
+                style={{
+                  flex: 1,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "#374151",
+                }}
+              >
+                {cat.key}
+              </span>
+
+              {/* Send now button */}
+              {cat.canSend && (
+                <button
+                  onClick={() => handleSendNow(cat.key)}
+                  disabled={sending || !!sendingKey}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "5px 12px",
+                    border: `1px solid ${sent ? "#bbf7d0" : "#e5e7eb"}`,
+                    borderRadius: 7,
+                    background: sent ? "#f0fdf4" : "#f9fafb",
+                    color: sent ? "#16a34a" : "#6b7280",
+                    fontSize: 11,
+                    fontWeight: 500,
+                    cursor: sending || !!sendingKey ? "default" : "pointer",
+                    transition: "all .15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!sending && !sent) {
+                      e.currentTarget.style.borderColor = "#6366f1";
+                      e.currentTarget.style.color = "#6366f1";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!sent) {
+                      e.currentTarget.style.borderColor = "#e5e7eb";
+                      e.currentTarget.style.color = "#6b7280";
+                    }
+                  }}
+                >
+                  {sending ? (
+                    <div
+                      style={{
+                        width: 11,
+                        height: 11,
+                        border: "2px solid #d1d5db",
+                        borderTopColor: "#6366f1",
+                        borderRadius: "50%",
+                        animation: "spin .7s linear infinite",
+                      }}
+                    />
+                  ) : sent ? (
+                    <Check size={11} />
+                  ) : (
+                    <Send size={11} />
+                  )}
+                  {sent ? "Sent!" : "Send now"}
+                </button>
+              )}
+
+              {/* Toggle */}
+              <button
+                onClick={() => handleToggle(cat.key, enabled)}
+                disabled={toggling}
+                style={{
+                  width: 38,
+                  height: 22,
+                  borderRadius: 99,
+                  border: "none",
+                  background: enabled ? "#6366f1" : "#e5e7eb",
+                  position: "relative",
+                  cursor: toggling ? "default" : "pointer",
+                  transition: "background .2s",
+                  flexShrink: 0,
+                  opacity: toggling ? 0.6 : 1,
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 3,
+                    left: enabled ? 19 : 3,
+                    width: 16,
+                    height: 16,
+                    borderRadius: "50%",
+                    background: "#fff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,.2)",
+                    transition: "left .2s",
+                  }}
+                />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function CampaignDetailPage() {
@@ -1221,6 +1420,11 @@ export default function CampaignDetailPage() {
                 load();
                 loadLeads(leadsPage, leadFilter);
               }}
+            />
+            <ReplyRulesPanel
+              campaignId={campaign._id}
+              replyRules={campaign.replyRules ?? {}}
+              onUpdate={load}
             />
           </Suspense>
 

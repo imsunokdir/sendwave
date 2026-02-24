@@ -7,6 +7,14 @@ export interface ICampaignStep {
   body: string;
 }
 
+export interface IReplyRules {
+  Interested: boolean;
+  "Meeting Booked": boolean;
+  "Not Interested": boolean;
+  "Out of Office": boolean;
+  Spam: boolean;
+}
+
 export interface ICampaignSchedule {
   timezone: string;
   sendHour: number;
@@ -27,6 +35,7 @@ export interface ICampaign extends Document {
     replied: number;
     failed: number;
   };
+  replyRules: IReplyRules;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +68,13 @@ const CampaignSchema = new Schema<ICampaign>(
       type: String,
       enum: ["draft", "active", "paused", "completed"],
       default: "draft",
+    },
+    replyRules: {
+      Interested: { type: Boolean, default: false },
+      "Meeting Booked": { type: Boolean, default: false },
+      "Not Interested": { type: Boolean, default: false },
+      "Out of Office": { type: Boolean, default: false },
+      Spam: { type: Boolean, default: false },
     },
     steps: [CampaignStepSchema],
     schedule: {
