@@ -69,7 +69,7 @@ export default function SettingsPage() {
 
         {/* ── Sections ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <SyncPreferences />
+          {/* <SyncPreferences /> */}
           <DangerZone />
         </div>
       </div>

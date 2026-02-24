@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { Campaign, IReplyRules } from "../models/campaign.model";
+import { Campaign } from "../models/campaign.model";
 import { Lead } from "../models/lead.model";
 import { EmailAccount } from "../models/emailAccounts.model";
 import { checkAndMarkReply } from "../services/replyDetection";
@@ -8,7 +8,7 @@ import { simpleParser } from "mailparser";
 import { indexEmail } from "../services/indexEmailsAlgolia";
 import { categorizeEmail } from "../ai/hgnFaceCategorization";
 import { client } from "../config/algoliaClient";
-import { autoReplyByRules } from "../services/smartReply.service";
+import { autoReplyByCategory } from "../services/smartReply.service";
 
 // Build set of all active campaign lead emails for quick lookup
 const getActiveCampaignLeadEmails = async (): Promise<Set<string>> => {
@@ -85,10 +85,27 @@ export const startCampaignReplyCron = () => {
                 account.user.toString(),
               );
 
-              const emailText = `Subject: ${parsed.subject}\nFrom: ${parsed.from?.text}\n\n${parsed.text}`;
-              const category = await categorizeEmail(emailText);
+              // const emailText = `Subject: ${parsed.subject}\nFrom: ${parsed.from?.text}\n\n${parsed.text}`;
+              // const category = await categorizeEmail(emailText);
 
-              console.log("catgeory reply:", category);
+              // console.log("catgeory reply:", category);
+
+              const leadDoc = await Lead.findOne({ email: fromEmail });
+              if (!leadDoc) continue;
+
+              const campaignWithCategories = await Campaign.findById(
+                leadDoc.campaignId,
+              );
+              if (!campaignWithCategories) continue;
+
+              // Build label list from campaign's custom categories
+              const labels = campaignWithCategories.categories.map(
+                (c) => c.name,
+              );
+              if (labels.length === 0) continue; // no categories defined, skip
+
+              const emailText = `Subject: ${parsed.subject}\nFrom: ${parsed.from?.text}\n\n${parsed.text}`;
+              const category = await categorizeEmail(emailText, labels); // ← pass labels
 
               if (category) {
                 await client.partialUpdateObject({
@@ -101,32 +118,30 @@ export const startCampaignReplyCron = () => {
                   `🏷️ Categorized reply from ${fromEmail} as "${category}"`,
                 );
 
-                // Find the campaign this lead belongs to
-                const leadDoc = await Lead.findOne({ email: fromEmail });
-                if (leadDoc) {
-                  const campaignWithRules = await Campaign.findById(
-                    leadDoc.campaignId,
-                  );
-                  if (campaignWithRules) {
-                    const shouldAutoReply =
-                      campaignWithRules.replyRules?.[
-                        category as keyof IReplyRules
-                      ];
+                // Find matched category config
+                const matchedCategory = campaignWithCategories.categories.find(
+                  (c) => c.name === category,
+                );
 
-                    if (
-                      shouldAutoReply &&
-                      category !== "Spam" &&
-                      category !== "Not Interested"
-                    ) {
-                      await autoReplyByRules(
-                        campaignWithRules._id.toString(),
-                        campaignWithRules.user.toString(),
-                        category,
-                      );
-                      console.log(
-                        `🤖 Auto-reply sent to ${fromEmail} [${category}]`,
-                      );
-                    }
+                if (matchedCategory) {
+                  // Stop sequence if configured
+                  if (matchedCategory.stopSequence) {
+                    await Lead.findByIdAndUpdate(leadDoc._id, {
+                      $set: { status: "opted-out" },
+                    });
+                    console.log(
+                      `🛑 Sequence stopped for ${fromEmail} [${category}]`,
+                    );
+                  }
+
+                  // Auto-reply if configured
+                  if (matchedCategory.autoReply) {
+                    await autoReplyByCategory(
+                      campaignWithCategories._id.toString(),
+                      campaignWithCategories.user.toString(),
+                      fromEmail,
+                      matchedCategory,
+                    );
                   }
                 }
               }

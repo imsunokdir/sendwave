@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Mail, Settings, LayoutGrid } from "lucide-react";
+import { Home, Settings, LayoutGrid } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const routeOrder = ["/", "/hub", "/settings", "/profile"];
@@ -11,7 +11,7 @@ export default function Dock() {
   const { user } = useAuth();
 
   const items = [
-    { icon: <Mail size={20} />, label: "Mail", path: "/" },
+    { icon: <Home size={20} />, label: "Mail", path: "/" },
     { icon: <LayoutGrid size={20} />, label: "Hub", path: "/hub" },
     { icon: <Settings size={20} />, label: "Settings", path: "/settings" },
   ];

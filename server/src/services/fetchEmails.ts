@@ -115,25 +115,25 @@ export const fetchEmailsAndIndex = async (
     );
 
     const emailText = `Subject: ${parsed.subject}\nFrom: ${parsed.from?.text}\n\n${parsed.text}`;
-    const category = await categorizeEmail(emailText);
+    // const category = await categorizeEmail(emailText);
 
-    if (category) {
-      await client.partialUpdateObject({
-        indexName: "emails",
-        objectID: `${account._id}-${folder}-${msg.uid}`,
-        attributesToUpdate: { category },
-        createIfNotExists: false,
-      });
-    }
+    // if (category) {
+    //   await client.partialUpdateObject({
+    //     indexName: "emails",
+    //     objectID: `${account._id}-${folder}-${msg.uid}`,
+    //     attributesToUpdate: { category },
+    //     createIfNotExists: false,
+    //   });
+    // }
 
-    if (category === "Interested" && account.notificationsEnabled) {
-      await sendInterestedNotifications({
-        from: parsed.from?.text,
-        subject: parsed.subject,
-        snippet: parsed.text?.slice(0, 100),
-        account: account.email,
-      });
-    }
+    // if (category === "Interested" && account.notificationsEnabled) {
+    //   await sendInterestedNotifications({
+    //     from: parsed.from?.text,
+    //     subject: parsed.subject,
+    //     snippet: parsed.text?.slice(0, 100),
+    //     account: account.email,
+    //   });
+    // }
 
     account.lastSyncedUID.set(folder, msg.uid);
     await EmailAccount.findByIdAndUpdate(account._id, {

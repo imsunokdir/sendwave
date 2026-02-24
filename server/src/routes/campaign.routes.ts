@@ -9,6 +9,8 @@ import {
   setCampaignStatusController,
   uploadLeadsController,
   getCampaignLeadsController,
+  updateCategoriesController,
+  triggerCategoryReplyController,
 } from "../controller/campaign.controller";
 import {
   saveCampaignContextController,
@@ -16,12 +18,9 @@ import {
   deleteCampaignContextController,
 } from "../controller/campaignContext.controller";
 import {
-  autoReplyInterestedController,
   getDraftReplyController,
   sendSingleReplyController,
   bulkMarkLeadsController,
-  updateReplyRulesController,
-  autoReplyByRulesController,
 } from "../controller/smartReply.controller";
 import { getLeadThreadController } from "../controller/leadThread.controller";
 import { getCampaignStatsController } from "../controller/campaignStats.controller";
@@ -31,7 +30,7 @@ const campaignRouter = Router();
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 campaignRouter.post("/", authMiddleware, createCampaignController);
 campaignRouter.get("/", authMiddleware, getCampaignsController);
-campaignRouter.get("/stats", authMiddleware, getCampaignStatsController); // ← before /:id
+campaignRouter.get("/stats", authMiddleware, getCampaignStatsController);
 campaignRouter.get("/:id", authMiddleware, getCampaignController);
 campaignRouter.put("/:id", authMiddleware, updateCampaignController);
 campaignRouter.delete("/:id", authMiddleware, deleteCampaignController);
@@ -64,22 +63,19 @@ campaignRouter.delete(
   deleteCampaignContextController,
 );
 
-// ── Smart reply ───────────────────────────────────────────────────────────────
-// campaignRouter.post(
-//   "/:id/auto-reply",
-//   authMiddleware,
-//   autoReplyInterestedController,
-// );
-campaignRouter.patch(
-  "/:id/reply-rules",
+// ── Categories ────────────────────────────────────────────────────────────────
+campaignRouter.put(
+  "/:id/categories",
   authMiddleware,
-  updateReplyRulesController,
+  updateCategoriesController,
 );
 campaignRouter.post(
-  "/:id/auto-reply",
+  "/:id/categories/trigger",
   authMiddleware,
-  autoReplyByRulesController,
+  triggerCategoryReplyController,
 );
+
+// ── Smart reply ───────────────────────────────────────────────────────────────
 campaignRouter.get("/:id/draft-reply", authMiddleware, getDraftReplyController);
 campaignRouter.post(
   "/:id/send-reply",

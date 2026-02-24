@@ -256,39 +256,39 @@ export const getUserEmailAccounts = async (req: Request, res: Response) => {
   }
 };
 
-export const fetchAndCategorizeEmails = async () => {
-  let page = 0;
-  const hitsPerPage = 100;
-  let hasMore = true;
+// export const fetchAndCategorizeEmails = async () => {
+//   let page = 0;
+//   const hitsPerPage = 100;
+//   let hasMore = true;
 
-  while (hasMore) {
-    const { hits, nbPages } = await client.searchSingleIndex({
-      indexName: "emails",
-      searchParams: {
-        query: "",
-        filters: "category:Uncategorized",
-        hitsPerPage,
-        page,
-      },
-    });
+//   while (hasMore) {
+//     const { hits, nbPages } = await client.searchSingleIndex({
+//       indexName: "emails",
+//       searchParams: {
+//         query: "",
+//         filters: "category:Uncategorized",
+//         hitsPerPage,
+//         page,
+//       },
+//     });
 
-    if (hits.length === 0 || page >= (nbPages ?? 1) - 1) {
-      hasMore = false;
-    }
+//     if (hits.length === 0 || page >= (nbPages ?? 1) - 1) {
+//       hasMore = false;
+//     }
 
-    const emails = hits.map((hit: any) => ({
-      id: hit.objectID,
-      text: `Subject: ${hit.subject}\nFrom: ${hit.from}\n\n${hit.text}`,
-    }));
+//     const emails = hits.map((hit: any) => ({
+//       id: hit.objectID,
+//       text: `Subject: ${hit.subject}\nFrom: ${hit.from}\n\n${hit.text}`,
+//     }));
 
-    console.log(`Processing page ${page + 1} of ${nbPages}...`);
-    await batchCategorizeEmails(emails);
+//     console.log(`Processing page ${page + 1} of ${nbPages}...`);
+//     await batchCategorizeEmails(emails);
 
-    page++;
+//     page++;
 
-    // Breathing room between pages
-    if (hasMore) await new Promise((res) => setTimeout(res, 1000));
-  }
+//     // Breathing room between pages
+//     if (hasMore) await new Promise((res) => setTimeout(res, 1000));
+//   }
 
-  console.log("Fetching and categorization complete!");
-};
+//   console.log("Fetching and categorization complete!");
+// };

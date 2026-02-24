@@ -1,6 +1,7 @@
 import { Campaign } from "../models/campaign.model";
 import { Lead } from "../models/lead.model";
 import type { ICampaign } from "../models/campaign.model";
+import { EmailAccount } from "../models/emailAccounts.model";
 
 // ── Create ────────────────────────────────────────────────────────────────────
 export const createCampaign = async (
@@ -10,6 +11,7 @@ export const createCampaign = async (
     emailAccount: string;
     steps: ICampaign["steps"];
     schedule: ICampaign["schedule"];
+    categories?: ICampaign["categories"]; // ← add this
   },
 ) => {
   return Campaign.create({ user: userId, ...data });
@@ -45,16 +47,52 @@ export const deleteCampaign = async (id: string, userId: string) => {
 };
 
 // ── Set status ────────────────────────────────────────────────────────────────
+// export const setCampaignStatus = async (
+//   id: string,
+//   userId: string,
+//   status: ICampaign["status"],
+// ) => {
+//   return Campaign.findOneAndUpdate(
+//     { _id: id, user: userId },
+//     { $set: { status } },
+//     { new: true },
+//   ).lean();
+// };
+
 export const setCampaignStatus = async (
   id: string,
   userId: string,
   status: ICampaign["status"],
 ) => {
-  return Campaign.findOneAndUpdate(
+  const campaign = await Campaign.findOneAndUpdate(
     { _id: id, user: userId },
     { $set: { status } },
     { new: true },
   ).lean();
+
+  if (!campaign) return null;
+
+  // ── Sync email account isActive ──────────────────────────────────────────
+  if (status === "active") {
+    await EmailAccount.findByIdAndUpdate(campaign.emailAccount, {
+      $set: { isActive: true },
+    });
+  } else {
+    // Check if account has any other active campaigns
+    const otherActiveCampaigns = await Campaign.countDocuments({
+      emailAccount: campaign.emailAccount,
+      status: "active",
+      _id: { $ne: campaign._id },
+    });
+
+    if (otherActiveCampaigns === 0) {
+      await EmailAccount.findByIdAndUpdate(campaign.emailAccount, {
+        $set: { isActive: false },
+      });
+    }
+  }
+
+  return campaign;
 };
 
 // ── Add leads ─────────────────────────────────────────────────────────────────

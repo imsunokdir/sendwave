@@ -27,13 +27,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     getMeService()
-      .then((data) =>
+      .then((data) => {
+        console.log("data:", data);
         setUser({
           id: data.user._id,
           email: data.user.email,
           name: data.user.name,
-        }),
-      )
+        });
+      })
       .catch(() => setUser(null))
       .finally(() => setIsLoading(false));
   }, []);

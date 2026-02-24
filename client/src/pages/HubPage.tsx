@@ -1,5 +1,6 @@
 import { useState, lazy, Suspense } from "react";
 import { Mail, Send } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 // Lazy loaded — only loads when tab is active
 const EmailAccounts = lazy(() => import("../component/hub/EmailAccounts"));
@@ -32,7 +33,13 @@ function TabLoader() {
 }
 
 export default function HubPage() {
-  const [activeTab, setActiveTab] = useState<TabId>("accounts");
+  // const [activeTab, setActiveTab] = useState<TabId>("accounts");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") ?? "accounts"; // default to emails
+
+  const handleTabChange = (tab: string) => {
+    setSearchParams({ tab });
+  };
 
   return (
     <div
@@ -117,7 +124,7 @@ export default function HubPage() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 style={{
                   flex: 1,
                   display: "flex",

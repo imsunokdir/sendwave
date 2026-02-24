@@ -313,7 +313,24 @@ export default function EmailAccounts() {
                   marginTop: 3,
                 }}
               >
+                {/* isActive badge */}
                 <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: "2px 8px",
+                    borderRadius: 99,
+                    background: acc.isActive ? "#dcfce7" : "#f3f4f6",
+                    color: acc.isActive ? "#16a34a" : "#9ca3af",
+                  }}
+                >
+                  {acc.isActive ? "🚀 In use" : "Idle"}
+                </span>
+
+                <span style={{ color: "#d1d5db" }}>·</span>
+
+                {/* sync status dot */}
+                {/* <span
                   style={{
                     width: 7,
                     height: 7,
@@ -321,8 +338,8 @@ export default function EmailAccounts() {
                     background: statusColor[acc.syncStatus] ?? "#9ca3af",
                     display: "inline-block",
                   }}
-                />
-                <span
+                /> */}
+                {/* <span
                   style={{
                     fontSize: 12,
                     color: "#6b7280",
@@ -330,39 +347,18 @@ export default function EmailAccounts() {
                   }}
                 >
                   {acc.syncStatus}
-                </span>
-                <span style={{ color: "#d1d5db" }}>·</span>
+                </span> */}
+
+                {/* <span style={{ color: "#d1d5db" }}>·</span>
                 <Clock size={11} color="#9ca3af" />
                 <span style={{ fontSize: 12, color: "#9ca3af" }}>
                   {formatLastSynced(acc.lastSyncedDate)}
-                </span>
+                </span> */}
               </div>
             </div>
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 2 }}>
-              <IconBtn
-                onClick={() =>
-                  handleToggleNotifications(acc._id, acc.notificationsEnabled)
-                }
-                active={acc.notificationsEnabled}
-                activeColor="#f59e0b"
-                title={acc.notificationsEnabled ? "Mute" : "Unmute"}
-              >
-                {acc.notificationsEnabled ? (
-                  <Bell size={15} />
-                ) : (
-                  <BellOff size={15} />
-                )}
-              </IconBtn>
-              <IconBtn
-                onClick={() => handleToggleSync(acc._id, acc.isActive)}
-                active={acc.isActive}
-                activeColor="#22c55e"
-                title={acc.isActive ? "Pause sync" : "Resume sync"}
-              >
-                <Power size={15} />
-              </IconBtn>
               <IconBtn
                 onClick={() => handleDelete(acc._id)}
                 hoverColor="#ef4444"

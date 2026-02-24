@@ -8,7 +8,6 @@ import {
   getUserEmailAccounts,
   getEmailsAlgolia,
   searchEmailAlgolia,
-  fetchAndCategorizeEmails,
 } from "../controller/email.controller";
 import { authMiddleware } from "../middlewares/authMiddlewares";
 import {
@@ -38,7 +37,7 @@ emailRouter.patch(
 emailRouter.patch("/:accountId/toggle-sync", authMiddleware, toggleCronAcc);
 
 emailRouter.delete("/:accountId", authMiddleware, deleteEmailAccount);
-emailRouter.post("/categorize/batch", authMiddleware, fetchAndCategorizeEmails);
+// emailRouter.post("/categorize/batch", authMiddleware, fetchAndCategorizeEmails);
 
 // /:folder last since it matches anything
 emailRouter.get("/:folder", authMiddleware, getEmailsAlgolia);

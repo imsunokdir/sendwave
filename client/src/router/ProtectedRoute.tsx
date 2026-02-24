@@ -10,7 +10,15 @@ export default function ProtectedRoute() {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
-  if (isLoading) return <div className="min-h-screen bg-gray-950" />;
+  if (isLoading)
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #f0f4ff 0%, #f9fafb 60%)",
+        }}
+      />
+    );
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   const shouldAnimate = !isFirstRender;
