@@ -4,9 +4,10 @@ import {
   getDraftReply,
   sendSingleReply,
   bulkMarkLeads,
-  autoReplyByRules,
+  autoReplyByCategory,
 } from "../services/smartReply.service";
 import { Campaign } from "../models/campaign.model";
+import { Lead } from "../models/lead.model";
 
 // ── Auto reply to all Interested leads ────────────────────────────────────────
 export const autoReplyInterestedController = async (
@@ -43,55 +44,122 @@ export const getDraftReplyController = async (req: Request, res: Response) => {
 };
 
 // Manual trigger — "Send now" button
-export const autoReplyByRulesController = async (
+// export const autoReplyByRulesController = async (
+//   req: Request,
+//   res: Response,
+// ) => {
+//   try {
+//     const { category } = req.query; // optional ?category=Interested
+//     const result = await autoReplyByCategory(
+//       req.params.id,
+//       req.user!.id,
+//       category as string | undefined,
+//     );
+//     res.status(200).json({ message: "Auto-reply complete", ...result });
+//   } catch (err: any) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
+export const triggerCategoryReplyController = async (
   req: Request,
   res: Response,
 ) => {
   try {
-    const { category } = req.query; // optional ?category=Interested
-    const result = await autoReplyByRules(
-      req.params.id,
-      req.user!.id,
-      category as string | undefined,
-    );
-    res.status(200).json({ message: "Auto-reply complete", ...result });
+    const { categoryName } = req.body;
+
+    const campaign = await Campaign.findOne({
+      _id: req.params.id,
+      user: req.user!.id,
+    });
+    if (!campaign)
+      return res.status(404).json({ message: "Campaign not found" });
+
+    const category = campaign.categories.find((c) => c.name === categoryName);
+    if (!category)
+      return res.status(404).json({ message: "Category not found" });
+
+    const leads = await Lead.find({
+      campaignId: campaign._id,
+      status: "replied",
+    });
+    let sent = 0,
+      failed = 0;
+
+    for (const lead of leads) {
+      try {
+        await autoReplyByCategory(
+          campaign._id.toString(),
+          campaign.user.toString(),
+          lead.email,
+          category,
+        );
+        sent++;
+      } catch {
+        failed++;
+      }
+    }
+
+    res.status(200).json({ message: "Done", sent, failed });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
 };
 
 // Toggle auto-reply rule for a category
-export const updateReplyRulesController = async (
+// export const updateReplyRulesController = async (
+//   req: Request,
+//   res: Response,
+// ) => {
+//   try {
+//     const { category, enabled } = req.body;
+
+//     const validCategories = [
+//       "Interested",
+//       "Meeting Booked",
+//       "Not Interested",
+//       "Out of Office",
+//       "Spam",
+//     ];
+
+//     if (!validCategories.includes(category))
+//       return res.status(400).json({ message: "Invalid category" });
+
+//     const campaign = await Campaign.findOneAndUpdate(
+//       { _id: req.params.id, user: req.user!.id },
+//       { $set: { [`replyRules.${category}`]: enabled } },
+//       { new: true },
+//     );
+
+//     if (!campaign)
+//       return res.status(404).json({ message: "Campaign not found" });
+
+//     res.status(200).json({
+//       message: "Reply rules updated",
+//       replyRules: campaign.replyRules,
+//     });
+//   } catch (err: any) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
+export const updateCategoriesController = async (
   req: Request,
   res: Response,
 ) => {
   try {
-    const { category, enabled } = req.body;
-
-    const validCategories = [
-      "Interested",
-      "Meeting Booked",
-      "Not Interested",
-      "Out of Office",
-      "Spam",
-    ];
-
-    if (!validCategories.includes(category))
-      return res.status(400).json({ message: "Invalid category" });
+    const { categories } = req.body;
 
     const campaign = await Campaign.findOneAndUpdate(
       { _id: req.params.id, user: req.user!.id },
-      { $set: { [`replyRules.${category}`]: enabled } },
+      { $set: { categories } },
       { new: true },
     );
 
     if (!campaign)
       return res.status(404).json({ message: "Campaign not found" });
 
-    res.status(200).json({
-      message: "Reply rules updated",
-      replyRules: campaign.replyRules,
-    });
+    res.status(200).json({ categories: campaign.categories });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

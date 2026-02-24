@@ -7,6 +7,13 @@ export interface ICampaignStep {
   body: string;
 }
 
+export interface ICampaignCategory {
+  name: string;
+  context: string; // AI reply instructions for this category
+  autoReply: boolean; // auto-send AI reply when this category is detected
+  stopSequence: boolean; // stop sending future emails to this lead
+}
+
 export interface IReplyRules {
   Interested: boolean;
   "Meeting Booked": boolean;
@@ -29,13 +36,13 @@ export interface ICampaign extends Document {
   status: "draft" | "active" | "paused" | "completed";
   steps: ICampaignStep[];
   schedule: ICampaignSchedule;
+  categories: ICampaignCategory[];
   stats: {
     totalLeads: number;
     sent: number;
     replied: number;
     failed: number;
   };
-  replyRules: IReplyRules;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +55,16 @@ const CampaignStepSchema = new Schema<ICampaignStep>(
     body: { type: String, required: true },
   },
   { _id: false },
+);
+
+const CampaignCategorySchema = new Schema<ICampaignCategory>(
+  {
+    name: { type: String, required: true },
+    context: { type: String, default: "" },
+    autoReply: { type: Boolean, default: false },
+    stopSequence: { type: Boolean, default: false },
+  },
+  { _id: true },
 );
 
 const CampaignSchema = new Schema<ICampaign>(
@@ -69,13 +86,6 @@ const CampaignSchema = new Schema<ICampaign>(
       enum: ["draft", "active", "paused", "completed"],
       default: "draft",
     },
-    replyRules: {
-      Interested: { type: Boolean, default: false },
-      "Meeting Booked": { type: Boolean, default: false },
-      "Not Interested": { type: Boolean, default: false },
-      "Out of Office": { type: Boolean, default: false },
-      Spam: { type: Boolean, default: false },
-    },
     steps: [CampaignStepSchema],
     schedule: {
       timezone: { type: String, default: "UTC" },
@@ -83,6 +93,7 @@ const CampaignSchema = new Schema<ICampaign>(
       sendMinute: { type: Number, default: 0 },
       sendDays: [{ type: Number }],
     },
+    categories: [CampaignCategorySchema], // ← replaces replyRules
     stats: {
       totalLeads: { type: Number, default: 0 },
       sent: { type: Number, default: 0 },

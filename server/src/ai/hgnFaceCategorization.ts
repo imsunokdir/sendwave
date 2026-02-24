@@ -2,17 +2,10 @@ import axios from "axios";
 require("dotenv").config();
 
 export const categorizeEmail = async (
-  emailText: any,
+  emailText: string,
+  labels: string[], // ← now dynamic
   retries = 3,
 ): Promise<string | null> => {
-  const labels = [
-    "Interested",
-    "Meeting Booked",
-    "Not Interested",
-    "Spam",
-    "Out of Office",
-  ];
-
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await axios.post(
@@ -26,7 +19,7 @@ export const categorizeEmail = async (
             Authorization: `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`,
             "Content-Type": "application/json",
           },
-          timeout: 30000, // 30 second timeout
+          timeout: 30000,
         },
       );
 
@@ -43,7 +36,7 @@ export const categorizeEmail = async (
       );
 
       if (isTimeout && attempt < retries) {
-        const delay = attempt * 3000; // 3s, 6s, 9s
+        const delay = attempt * 3000;
         console.log(`Retrying in ${delay / 1000}s...`);
         await new Promise((res) => setTimeout(res, delay));
       } else {
@@ -51,6 +44,5 @@ export const categorizeEmail = async (
       }
     }
   }
-
   return null;
 };

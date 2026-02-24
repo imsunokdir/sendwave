@@ -61,7 +61,11 @@ export default function CampaignCard({
 
   return (
     <div
-      onClick={() => navigate(`/campaigns/${campaign._id}`)}
+      onClick={() =>
+        navigate(`/campaigns/${campaign._id}`, {
+          state: { fromTab: "outreach" },
+        })
+      }
       style={{
         position: "relative",
         background: "#fff",

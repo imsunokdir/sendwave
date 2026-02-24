@@ -6,6 +6,7 @@ import { searchCampaignContext } from "./campaignContext";
 import { decrypt } from "../utility/encryptionUtility";
 import Groq from "groq-sdk";
 import nodemailer from "nodemailer";
+import type { ICampaignCategory } from "../models/campaign.model";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -36,16 +37,57 @@ export const getLeadReplyFromAlgolia = async (
   }
 };
 
+export const autoReplyByCategory = async (
+  campaignId: string,
+  userId: string,
+  leadEmail: string,
+  category: ICampaignCategory,
+): Promise<void> => {
+  const campaign = await Campaign.findOne({ _id: campaignId, user: userId });
+  if (!campaign) throw new Error("Campaign not found");
+
+  const account = await EmailAccount.findById(campaign.emailAccount);
+  if (!account) throw new Error("Email account not found");
+
+  const lead = await Lead.findOne({ email: leadEmail, campaignId });
+  if (!lead) throw new Error("Lead not found");
+
+  try {
+    const reply = await getLeadReplyFromAlgolia(
+      leadEmail,
+      account._id.toString(),
+    );
+    if (!reply) return;
+
+    // Pass category context to RAG reply generator
+    const aiReply = await generateCampaignReply(
+      campaignId,
+      reply.text,
+      category.context, // ← inject category-specific context
+    );
+    if (!aiReply) return;
+
+    await sendReplyEmail(account, leadEmail, reply.subject, aiReply);
+    await Lead.findByIdAndUpdate(lead._id, { $set: { status: "responded" } });
+    console.log(`🤖 Auto-reply sent to ${leadEmail} [${category.name}]`);
+  } catch (err: any) {
+    console.error(`❌ Auto-reply failed for ${leadEmail}:`, err.message);
+  }
+};
+
 // ── Generate AI reply ─────────────────────────────────────────────────────────
 export const generateCampaignReply = async (
   campaignId: string,
   emailText: string,
+  categoryContext?: string, // ← add this
 ): Promise<string | null> => {
   try {
-    const context = await searchCampaignContext(campaignId, emailText);
+    const ragContext = await searchCampaignContext(campaignId, emailText);
+
     const prompt = `You are an email assistant helping with outreach campaigns. Use the context below to write a short, professional reply.
 
-${context ? `Context:\n${context}\n` : ""}
+${ragContext ? `Campaign context:\n${ragContext}\n` : ""}
+${categoryContext ? `Reply instructions for this type of email:\n${categoryContext}\n` : ""}
 Email received:
 ${emailText}
 
@@ -124,57 +166,57 @@ export const autoReplyInterested = async (
   return { sent, failed };
 };
 
-export const autoReplyByRules = async (
-  campaignId: string,
-  userId: string,
-  filterCategory?: string, // optional — if passed, only process that category
-): Promise<{ sent: number; failed: number }> => {
-  const campaign = await Campaign.findOne({ _id: campaignId, user: userId });
-  if (!campaign) throw new Error("Campaign not found");
+// export const autoReplyByRules = async (
+//   campaignId: string,
+//   userId: string,
+//   filterCategory?: string, // optional — if passed, only process that category
+// ): Promise<{ sent: number; failed: number }> => {
+//   const campaign = await Campaign.findOne({ _id: campaignId, user: userId });
+//   if (!campaign) throw new Error("Campaign not found");
 
-  const account = await EmailAccount.findById(campaign.emailAccount);
-  if (!account) throw new Error("Email account not found");
+//   const account = await EmailAccount.findById(campaign.emailAccount);
+//   if (!account) throw new Error("Email account not found");
 
-  const repliedLeads = await Lead.find({ campaignId, status: "replied" });
-  let sent = 0,
-    failed = 0;
+//   const repliedLeads = await Lead.find({ campaignId, status: "replied" });
+//   let sent = 0,
+//     failed = 0;
 
-  for (const lead of repliedLeads) {
-    try {
-      const reply = await getLeadReplyFromAlgolia(
-        lead.email,
-        account._id.toString(),
-      );
-      if (!reply) continue;
+//   for (const lead of repliedLeads) {
+//     try {
+//       const reply = await getLeadReplyFromAlgolia(
+//         lead.email,
+//         account._id.toString(),
+//       );
+//       if (!reply) continue;
 
-      const category = reply.category as keyof IReplyRules;
+//       const category = reply.category as keyof IReplyRules;
 
-      // If filterCategory passed, only process that one
-      if (filterCategory && category !== filterCategory) continue;
+//       // If filterCategory passed, only process that one
+//       if (filterCategory && category !== filterCategory) continue;
 
-      // Check if campaign has auto-reply enabled for this category
-      const shouldReply = campaign.replyRules?.[category];
-      if (!shouldReply) continue;
+//       // Check if campaign has auto-reply enabled for this category
+//       const shouldReply = campaign.replyRules?.[category];
+//       if (!shouldReply) continue;
 
-      // Don't reply to Spam or Not Interested even if somehow enabled
-      if (category === "Spam" || category === "Not Interested") continue;
+//       // Don't reply to Spam or Not Interested even if somehow enabled
+//       if (category === "Spam" || category === "Not Interested") continue;
 
-      const aiReply = await generateCampaignReply(campaignId, reply.text);
-      if (!aiReply) {
-        failed++;
-        continue;
-      }
+//       const aiReply = await generateCampaignReply(campaignId, reply.text);
+//       if (!aiReply) {
+//         failed++;
+//         continue;
+//       }
 
-      await sendReplyEmail(account, lead.email, reply.subject, aiReply);
-      await Lead.findByIdAndUpdate(lead._id, { $set: { status: "responded" } });
-      sent++;
-    } catch {
-      failed++;
-    }
-  }
+//       await sendReplyEmail(account, lead.email, reply.subject, aiReply);
+//       await Lead.findByIdAndUpdate(lead._id, { $set: { status: "responded" } });
+//       sent++;
+//     } catch {
+//       failed++;
+//     }
+//   }
 
-  return { sent, failed };
-};
+//   return { sent, failed };
+// };
 
 // ── Get AI draft for single lead ──────────────────────────────────────────────
 export const getDraftReply = async (

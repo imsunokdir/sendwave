@@ -4,9 +4,11 @@ import pLimit from "p-limit";
 
 // Limit concurrent API calls to 5 at a time
 
-export const batchCategorizeEmails = async (emails: any[]) => {
+export const batchCategorizeEmails = async (
+  emails: any[],
+  labels: string[],
+) => {
   console.log(`Starting categorization for ${emails.length} emails...`);
-  // Limit concurrent API calls to 5 at a time
 
   const limit = pLimit(5);
 
@@ -15,7 +17,7 @@ export const batchCategorizeEmails = async (emails: any[]) => {
       limit(async () => {
         try {
           console.log(`Categorizing email ID: ${email.id} ...`);
-          const category = await categorizeEmail(email.text);
+          const category = await categorizeEmail(email.text, labels); // ← pass labels
           if (category === null) {
             console.log(
               `Email ID: ${email.id} failed, leaving as Uncategorized`,

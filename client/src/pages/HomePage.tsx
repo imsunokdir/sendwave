@@ -72,7 +72,9 @@ const LEAD_LABELS: Record<string, string> = {
 };
 
 const formatTimeAgo = (d: string) => {
+  if (!d) return "recently";
   const diff = Date.now() - new Date(d).getTime();
+  if (isNaN(diff)) return "recently";
   const mins = Math.floor(diff / 60000);
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
@@ -113,6 +115,11 @@ export default function HomePage() {
   } | null>(null);
   const [byStatus, setByStatus] = useState<ByStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -126,11 +133,17 @@ export default function HomePage() {
         setByStatus(statsRes.data.byStatus);
 
         const totalLeads = campaigns.reduce(
-          (s, c) => s + c.stats.totalLeads,
+          (s, c) => s + (c.stats?.totalLeads ?? 0),
           0,
         );
-        const totalSent = campaigns.reduce((s, c) => s + c.stats.sent, 0);
-        const totalReplied = campaigns.reduce((s, c) => s + c.stats.replied, 0);
+        const totalSent = campaigns.reduce(
+          (s, c) => s + (c.stats?.sent ?? 0),
+          0,
+        );
+        const totalReplied = campaigns.reduce(
+          (s, c) => s + (c.stats?.replied ?? 0),
+          0,
+        );
         const activeCampaigns = campaigns.filter(
           (c) => c.status === "active",
         ).length;
@@ -148,7 +161,10 @@ export default function HomePage() {
                 email: lead.email,
                 campaignId: campaign._id,
                 campaignName: campaign.name,
-                repliedAt: lead.repliedAt,
+                repliedAt:
+                  lead.repliedAt ??
+                  lead.lastContactedAt ??
+                  new Date().toISOString(),
               });
             }
           } catch {
@@ -157,10 +173,12 @@ export default function HomePage() {
         }
 
         recentReplies = recentReplies
-          .sort(
-            (a, b) =>
-              new Date(b.repliedAt).getTime() - new Date(a.repliedAt).getTime(),
-          )
+          .filter((r) => !!r.email)
+          .sort((a, b) => {
+            const ta = a.repliedAt ? new Date(a.repliedAt).getTime() : 0;
+            const tb = b.repliedAt ? new Date(b.repliedAt).getTime() : 0;
+            return tb - ta;
+          })
           .slice(0, 5);
 
         setData({
@@ -181,13 +199,13 @@ export default function HomePage() {
   }, []);
 
   const replyRate =
-    data && data.totalSent > 0
-      ? Math.round((data.totalReplied / data.totalSent) * 100)
+    data && (data.totalSent ?? 0) > 0
+      ? Math.round(((data.totalReplied ?? 0) / data.totalSent) * 100)
       : 0;
 
   const pieData = byStatus
     ? Object.entries(byStatus)
-        .filter(([, v]) => v > 0)
+        .filter(([, v]) => v != null && v > 0)
         .map(([key, value]) => ({ name: LEAD_LABELS[key] ?? key, value, key }))
     : [];
 
@@ -307,7 +325,7 @@ export default function HomePage() {
           </div>
           <button
             className="new-btn"
-            onClick={() => navigate("/hub")}
+            onClick={() => navigate("/hub?tab=outreach")}
             style={{
               display: "flex",
               alignItems: "center",
@@ -906,7 +924,7 @@ export default function HomePage() {
                   ({data!.campaigns.length})
                 </span>
                 <button
-                  onClick={() => navigate("/hub")}
+                  onClick={() => navigate("/hub?tab=outreach")}
                   style={{
                     marginLeft: "auto",
                     fontSize: 11,

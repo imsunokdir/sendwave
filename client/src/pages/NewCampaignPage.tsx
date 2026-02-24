@@ -14,9 +14,11 @@ import {
 import type {
   CampaignStep,
   CampaignSchedule,
+  ICampaignCategory,
 } from "../services/campaignService";
 import type { ContextSnippet } from "../component/campaign/CampaignContextSteps";
 import CampaignContextStep from "../component/campaign/CampaignContextSteps";
+import CampaignCategories from "../component/campaign/CampaignCategories";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FormState {
@@ -28,6 +30,13 @@ interface FormState {
 
 const STEPS = ["Basics", "Context", "Sequence", "Leads", "Schedule", "Review"];
 
+interface FormState {
+  name: string;
+  emailAccount: string;
+  steps: CampaignStep[];
+  schedule: CampaignSchedule;
+  categories: ICampaignCategory[];
+}
 const defaultSchedule: CampaignSchedule = {
   timezone: "UTC",
   sendHour: 9,
@@ -143,6 +152,7 @@ export default function NewCampaignPage() {
     emailAccount: accounts[0]?._id ?? "",
     steps: [{ ...defaultStep }],
     schedule: defaultSchedule,
+    categories: [],
   });
 
   const [contextSnippets, setContextSnippets] = useState<ContextSnippet[]>([]);
@@ -162,10 +172,11 @@ export default function NewCampaignPage() {
   const canProceed = (): boolean => {
     if (current === 0) return !!form.name.trim() && !!form.emailAccount;
     if (current === 1) return true; // context is optional
-    if (current === 2)
+    if (current === 2) return true;
+    if (current === 3)
       return form.steps.every((s) => s.subject.trim() && s.body.trim());
-    if (current === 3) return leadCount > 0;
-    if (current === 4) return form.schedule.sendDays.length > 0;
+    if (current === 4) return leadCount > 0;
+    if (current === 5) return form.schedule.sendDays.length > 0;
     return true;
   };
 
@@ -179,8 +190,8 @@ export default function NewCampaignPage() {
         emailAccount: form.emailAccount,
         steps: form.steps,
         schedule: form.schedule,
+        categories: form.categories,
       });
-
       // 2. Upload context snippets to Pinecone tagged with campaignId
       for (const snippet of contextSnippets) {
         await saveCampaignContextService(campaign._id, snippet.text);
@@ -375,36 +386,47 @@ export default function NewCampaignPage() {
             />
           )}
 
-          {/* Step 2 — Sequence */}
           {current === 2 && (
+            <CampaignCategories
+              categories={form.categories}
+              onChange={(categories) => setForm({ ...form, categories })}
+            />
+          )}
+
+          {/* Step 3 — Sequence */}
+          {current === 3 && (
             <StepBuilder
               steps={form.steps}
               onChange={(steps) => setForm({ ...form, steps })}
             />
           )}
 
-          {/* Step 3 — Leads */}
-          {current === 3 && (
+          {/* Step 4 — Leads */}
+          {current === 4 && (
             <LeadUploader
               onLeadsParsed={handleLeadsParsed}
               leadCount={leadCount}
             />
           )}
 
-          {/* Step 4 — Schedule */}
-          {current === 4 && (
+          {/* Step 5 — Schedule */}
+          {current === 5 && (
             <SchedulePicker
               schedule={form.schedule}
               onChange={(schedule) => setForm({ ...form, schedule })}
             />
           )}
 
-          {/* Step 5 — Review */}
-          {current === 5 && (
+          {/* Step 6 — Review */}
+          {current === 6 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {(
                 [
-                  ["Campaign", form.name],
+                  [
+                    "Categories",
+                    `${form.categories.length} categor${form.categories.length !== 1 ? "ies" : "y"}`,
+                  ],
+                  ,
                   [
                     "Sending from",
                     accounts.find((a) => a._id === form.emailAccount)?.email ??

@@ -22,6 +22,14 @@ export interface CampaignSchedule {
   sendDays: number[];
 }
 
+export interface ICampaignCategory {
+  _id?: string;
+  name: string;
+  context: string;
+  autoReply: boolean;
+  stopSequence: boolean;
+}
+
 export interface Lead {
   _id: string; // ← add this
   email: string;
@@ -47,6 +55,7 @@ export interface Campaign {
   };
   replyRules: Record<string, boolean>;
   createdAt: string;
+  categories: ICampaignCategory[];
 }
 
 export interface CreateCampaignPayload {
@@ -54,6 +63,7 @@ export interface CreateCampaignPayload {
   emailAccount: string;
   steps: CampaignStep[];
   schedule: CampaignSchedule;
+  categories?: ICampaignCategory[];
 }
 
 export interface CampaignContextItem {
@@ -163,5 +173,25 @@ export const triggerAutoReplyService = async (
   const res = await api.post(
     `/campaigns/${campaignId}/auto-reply?category=${category}`,
   );
+  return res.data;
+};
+
+export const updateCategoriesService = async (
+  campaignId: string,
+  categories: ICampaignCategory[],
+) => {
+  const res = await api.put(`/campaigns/${campaignId}/categories`, {
+    categories,
+  });
+  return res.data;
+};
+
+export const triggerCategoryReplyService = async (
+  campaignId: string,
+  categoryName: string,
+) => {
+  const res = await api.post(`/campaigns/${campaignId}/categories/trigger`, {
+    categoryName,
+  });
   return res.data;
 };
