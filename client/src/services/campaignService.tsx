@@ -45,6 +45,7 @@ export interface Campaign {
     replied: number;
     failed: number;
   };
+  replyRules: Record<string, boolean>;
   createdAt: string;
 }
 
@@ -141,4 +142,26 @@ export const getCampaignLeadsService = async (
     params: { page, limit, status },
   });
   return res.data; // { leads, total, page, totalPages, hasMore }
+};
+
+export const updateReplyRulesService = async (
+  campaignId: string,
+  category: string,
+  enabled: boolean,
+) => {
+  const res = await api.patch(`/campaigns/${campaignId}/reply-rules`, {
+    category,
+    enabled,
+  });
+  return res.data;
+};
+
+export const triggerAutoReplyService = async (
+  campaignId: string,
+  category: string,
+) => {
+  const res = await api.post(
+    `/campaigns/${campaignId}/auto-reply?category=${category}`,
+  );
+  return res.data;
 };

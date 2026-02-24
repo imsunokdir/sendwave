@@ -20,6 +20,8 @@ import {
   getDraftReplyController,
   sendSingleReplyController,
   bulkMarkLeadsController,
+  updateReplyRulesController,
+  autoReplyByRulesController,
 } from "../controller/smartReply.controller";
 import { getLeadThreadController } from "../controller/leadThread.controller";
 import { getCampaignStatsController } from "../controller/campaignStats.controller";
@@ -63,10 +65,20 @@ campaignRouter.delete(
 );
 
 // ── Smart reply ───────────────────────────────────────────────────────────────
+// campaignRouter.post(
+//   "/:id/auto-reply",
+//   authMiddleware,
+//   autoReplyInterestedController,
+// );
+campaignRouter.patch(
+  "/:id/reply-rules",
+  authMiddleware,
+  updateReplyRulesController,
+);
 campaignRouter.post(
   "/:id/auto-reply",
   authMiddleware,
-  autoReplyInterestedController,
+  autoReplyByRulesController,
 );
 campaignRouter.get("/:id/draft-reply", authMiddleware, getDraftReplyController);
 campaignRouter.post(

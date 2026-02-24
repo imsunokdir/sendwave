@@ -1,5 +1,5 @@
 import { client } from "../config/algoliaClient";
-import { Campaign } from "../models/campaign.model";
+import { Campaign, IReplyRules } from "../models/campaign.model";
 import { Lead } from "../models/lead.model";
 import { EmailAccount } from "../models/emailAccounts.model";
 import { searchCampaignContext } from "./campaignContext";
@@ -106,6 +106,58 @@ export const autoReplyInterested = async (
         account._id.toString(),
       );
       if (!reply || reply.category !== "Interested") continue;
+
+      const aiReply = await generateCampaignReply(campaignId, reply.text);
+      if (!aiReply) {
+        failed++;
+        continue;
+      }
+
+      await sendReplyEmail(account, lead.email, reply.subject, aiReply);
+      await Lead.findByIdAndUpdate(lead._id, { $set: { status: "responded" } });
+      sent++;
+    } catch {
+      failed++;
+    }
+  }
+
+  return { sent, failed };
+};
+
+export const autoReplyByRules = async (
+  campaignId: string,
+  userId: string,
+  filterCategory?: string, // optional — if passed, only process that category
+): Promise<{ sent: number; failed: number }> => {
+  const campaign = await Campaign.findOne({ _id: campaignId, user: userId });
+  if (!campaign) throw new Error("Campaign not found");
+
+  const account = await EmailAccount.findById(campaign.emailAccount);
+  if (!account) throw new Error("Email account not found");
+
+  const repliedLeads = await Lead.find({ campaignId, status: "replied" });
+  let sent = 0,
+    failed = 0;
+
+  for (const lead of repliedLeads) {
+    try {
+      const reply = await getLeadReplyFromAlgolia(
+        lead.email,
+        account._id.toString(),
+      );
+      if (!reply) continue;
+
+      const category = reply.category as keyof IReplyRules;
+
+      // If filterCategory passed, only process that one
+      if (filterCategory && category !== filterCategory) continue;
+
+      // Check if campaign has auto-reply enabled for this category
+      const shouldReply = campaign.replyRules?.[category];
+      if (!shouldReply) continue;
+
+      // Don't reply to Spam or Not Interested even if somehow enabled
+      if (category === "Spam" || category === "Not Interested") continue;
 
       const aiReply = await generateCampaignReply(campaignId, reply.text);
       if (!aiReply) {

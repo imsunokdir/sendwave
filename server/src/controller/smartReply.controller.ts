@@ -4,7 +4,9 @@ import {
   getDraftReply,
   sendSingleReply,
   bulkMarkLeads,
+  autoReplyByRules,
 } from "../services/smartReply.service";
+import { Campaign } from "../models/campaign.model";
 
 // ── Auto reply to all Interested leads ────────────────────────────────────────
 export const autoReplyInterestedController = async (
@@ -35,6 +37,61 @@ export const getDraftReplyController = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Could not generate draft" });
 
     res.status(200).json(result);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Manual trigger — "Send now" button
+export const autoReplyByRulesController = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const { category } = req.query; // optional ?category=Interested
+    const result = await autoReplyByRules(
+      req.params.id,
+      req.user!.id,
+      category as string | undefined,
+    );
+    res.status(200).json({ message: "Auto-reply complete", ...result });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Toggle auto-reply rule for a category
+export const updateReplyRulesController = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const { category, enabled } = req.body;
+
+    const validCategories = [
+      "Interested",
+      "Meeting Booked",
+      "Not Interested",
+      "Out of Office",
+      "Spam",
+    ];
+
+    if (!validCategories.includes(category))
+      return res.status(400).json({ message: "Invalid category" });
+
+    const campaign = await Campaign.findOneAndUpdate(
+      { _id: req.params.id, user: req.user!.id },
+      { $set: { [`replyRules.${category}`]: enabled } },
+      { new: true },
+    );
+
+    if (!campaign)
+      return res.status(404).json({ message: "Campaign not found" });
+
+    res.status(200).json({
+      message: "Reply rules updated",
+      replyRules: campaign.replyRules,
+    });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
