@@ -25,8 +25,6 @@ export interface CampaignSchedule {
 export interface ICampaignCategory {
   _id?: string;
   name: string;
-  context: string;
-  autoReply: boolean;
   stopSequence: boolean;
 }
 
@@ -47,6 +45,7 @@ export interface Campaign {
   steps: CampaignStep[];
   leads?: Lead[];
   schedule: CampaignSchedule;
+  autoReply: boolean;
   stats: {
     totalLeads: number;
     sent: number;
@@ -69,6 +68,7 @@ export interface CreateCampaignPayload {
 export interface CampaignContextItem {
   _id: string;
   text: string;
+  pineconeId: string;
 }
 
 // ─── Campaign ─────────────────────────────────────────────────────────────────
@@ -193,5 +193,13 @@ export const triggerCategoryReplyService = async (
   const res = await api.post(`/campaigns/${campaignId}/categories/trigger`, {
     categoryName,
   });
+  return res.data;
+};
+
+export const updateCampaignAutoReplyService = async (
+  id: string,
+  autoReply: boolean,
+): Promise<Campaign> => {
+  const res = await api.patch(`/campaigns/${id}/auto-reply`, { autoReply });
   return res.data;
 };

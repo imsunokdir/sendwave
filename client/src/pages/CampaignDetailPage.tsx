@@ -41,6 +41,7 @@ import {
   triggerAutoReplyService,
   updateCategoriesService,
   triggerCategoryReplyService,
+  updateCampaignAutoReplyService,
 } from "../services/campaignService";
 import type {
   Campaign,
@@ -419,6 +420,8 @@ export default function CampaignDetailPage() {
     skipped: number;
   } | null>(null);
 
+  const [togglingAutoReply, setTogglingAutoReply] = useState(false);
+
   // Auto-open thread from dashboard ?openLead= param
   useEffect(() => {
     const openLead = searchParams.get("openLead");
@@ -436,6 +439,22 @@ export default function CampaignDetailPage() {
       setError("Failed to load campaign.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAutoReplyToggle = async () => {
+    if (!campaign) return;
+    setTogglingAutoReply(true);
+    try {
+      const updated = await updateCampaignAutoReplyService(
+        campaign._id,
+        !campaign.autoReply,
+      );
+      setCampaign(updated);
+    } catch {
+      setError("Failed to update auto-reply.");
+    } finally {
+      setTogglingAutoReply(false);
     }
   };
 
@@ -457,14 +476,8 @@ export default function CampaignDetailPage() {
 
   const handleCategoriesChange = (categories: ICampaignCategory[]) => {
     if (!campaign) return;
-
-    // Update UI immediately
     setCampaign({ ...campaign, categories });
-
-    // Debounce API call
-    if (categoriesSaveTimer.current) {
-      clearTimeout(categoriesSaveTimer.current);
-    }
+    if (categoriesSaveTimer.current) clearTimeout(categoriesSaveTimer.current);
     categoriesSaveTimer.current = setTimeout(async () => {
       setSavingCategories(true);
       try {
@@ -1047,7 +1060,7 @@ export default function CampaignDetailPage() {
           </div>
 
           {/* Context */}
-          {/* <div
+          <div
             style={{
               background: "#fff",
               border: "1px solid #e5e7eb",
@@ -1267,10 +1280,10 @@ export default function CampaignDetailPage() {
                   );
                 })}
             </div>
-          </div> */}
+          </div>
 
           {/* Categories */}
-          <div
+          {/* <div
             style={{
               background: "#fff",
               border: "1px solid #e5e7eb",
@@ -1318,6 +1331,135 @@ export default function CampaignDetailPage() {
                 onTrigger={handleTriggerCategory}
               />
             </div>
+          </div> */}
+
+          {/* AI Auto Reply */}
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 14,
+              overflow: "hidden",
+              marginBottom: 12,
+              boxShadow: "0 1px 3px rgba(0,0,0,.05)",
+            }}
+          >
+            <div
+              style={{
+                padding: "12px 18px",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <Zap size={13} color="#6366f1" />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                AI Auto Reply
+              </span>
+              <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                Automatically reply to leads using your knowledge base
+              </span>
+              <div
+                style={{
+                  marginLeft: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                {togglingAutoReply && (
+                  <div
+                    style={{
+                      width: 13,
+                      height: 13,
+                      border: "2px solid #e5e7eb",
+                      borderTopColor: "#6366f1",
+                      borderRadius: "50%",
+                      animation: "spin .7s linear infinite",
+                    }}
+                  />
+                )}
+                <button
+                  onClick={handleAutoReplyToggle}
+                  disabled={togglingAutoReply}
+                  style={{
+                    width: 38,
+                    height: 22,
+                    borderRadius: 99,
+                    border: "none",
+                    background: campaign.autoReply ? "#6366f1" : "#e5e7eb",
+                    position: "relative",
+                    cursor: togglingAutoReply ? "default" : "pointer",
+                    transition: "background .2s",
+                    flexShrink: 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 3,
+                      left: campaign.autoReply ? 19 : 3,
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      background: "#fff",
+                      boxShadow: "0 1px 3px rgba(0,0,0,.2)",
+                      transition: "left .2s",
+                    }}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Reply Categories — for labeling + stop sequence only */}
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 14,
+              overflow: "hidden",
+              marginBottom: 12,
+              boxShadow: "0 1px 3px rgba(0,0,0,.05)",
+            }}
+          >
+            <div
+              style={{
+                padding: "12px 18px",
+                borderBottom: "1px solid #f3f4f6",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <Brain size={13} color="#6366f1" />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                Reply Categories
+              </span>
+              <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                ({campaign.categories?.length ?? 0}) — for labeling & stop
+                sequence
+              </span>
+              {savingCategories && (
+                <div
+                  style={{
+                    marginLeft: "auto",
+                    width: 14,
+                    height: 14,
+                    border: "2px solid #e5e7eb",
+                    borderTopColor: "#6366f1",
+                    borderRadius: "50%",
+                    animation: "spin .7s linear infinite",
+                  }}
+                />
+              )}
+            </div>
+            {/* <div style={{ padding: "14px 18px" }}>
+              <CampaignCategories
+                categories={campaign.categories ?? []}
+                onChange={handleCategoriesChange}
+              />
+            </div> */}
           </div>
 
           {/* Sequence */}

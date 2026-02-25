@@ -4,20 +4,25 @@ import { v4 as uuidv4 } from "uuid";
 import { generateEmbedding } from "./pineEmbeddings";
 
 // Save context to Pinecone
-export const saveOutreachContext = async (text: string) => {
+export const saveOutreachContext = async (
+  text: string,
+  campaignId: string,
+): Promise<string> => {
+  const id = uuidv4(); // ← generate id first
   const embedding = await generateEmbedding(text);
 
   await pineconeIndex.upsert({
     records: [
       {
-        id: uuidv4(),
+        id,
         values: embedding,
-        metadata: { text },
+        metadata: { text, campaignId },
       },
     ],
   });
 
-  console.log(`Saved outreach context: "${text}"`);
+  console.log(`Saved outreach context for campaign ${campaignId}: "${text}"`);
+  return id; // ← return it
 };
 
 // Delete context from Pinecone
@@ -43,14 +48,18 @@ export const getAllOutreachContext = async () => {
 };
 
 // Search relevant context for a given email
-export const searchRelevantContext = async (emailText: string) => {
+export const searchRelevantContext = async (
+  emailText: string,
+  campaignId: string,
+) => {
   const embedding = await generateEmbedding(emailText);
 
   const results = await pineconeIndex.query({
     vector: embedding,
     topK: 3,
     includeMetadata: true,
+    filter: { campaignId: { $eq: campaignId } }, // ← filter by campaign
   });
 
-  return results.matches?.map((match) => match.metadata?.text).join("\n") ?? "";
+  return results.matches?.map((m) => m.metadata?.text).join("\n") ?? "";
 };

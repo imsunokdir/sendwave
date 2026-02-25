@@ -9,7 +9,7 @@ export interface ICampaignStep {
 
 export interface ICampaignCategory {
   name: string;
-  context: string; // AI reply instructions for this category
+  // context: string; // AI reply instructions for this category
   autoReply: boolean; // auto-send AI reply when this category is detected
   stopSequence: boolean; // stop sending future emails to this lead
 }
@@ -43,6 +43,7 @@ export interface ICampaign extends Document {
     replied: number;
     failed: number;
   };
+  autoReply: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,13 +55,13 @@ const CampaignStepSchema = new Schema<ICampaignStep>(
     subject: { type: String, required: true },
     body: { type: String, required: true },
   },
-  { _id: false },
+  { _id: true },
 );
 
 const CampaignCategorySchema = new Schema<ICampaignCategory>(
   {
     name: { type: String, required: true },
-    context: { type: String, default: "" },
+    // context: { type: String, default: "" },
     autoReply: { type: Boolean, default: false },
     stopSequence: { type: Boolean, default: false },
   },
@@ -93,7 +94,9 @@ const CampaignSchema = new Schema<ICampaign>(
       sendMinute: { type: Number, default: 0 },
       sendDays: [{ type: Number }],
     },
-    categories: [CampaignCategorySchema], // ← replaces replyRules
+    categories: [CampaignCategorySchema],
+    autoReply: { type: Boolean, default: true },
+
     stats: {
       totalLeads: { type: Number, default: 0 },
       sent: { type: Number, default: 0 },

@@ -8,9 +8,8 @@ import { simpleParser } from "mailparser";
 import { indexEmail } from "../services/indexEmailsAlgolia";
 import { categorizeEmail } from "../ai/hgnFaceCategorization";
 import { client } from "../config/algoliaClient";
-import { autoReplyByCategory } from "../services/smartReply.service";
+import { autoReply } from "../services/smartReply.service"; // ← updated import
 
-// Build set of all active campaign lead emails for quick lookup
 const getActiveCampaignLeadEmails = async (): Promise<Set<string>> => {
   const activeCampaigns = await Campaign.find({ status: "active" })
     .select("_id")
@@ -28,7 +27,7 @@ export const startCampaignReplyCron = () => {
   cron.schedule("*/2 * * * *", async () => {
     try {
       const activeCampaigns = await Campaign.find({ status: "active" })
-        .select("emailAccount")
+        .select("emailAccount categories user autoReply") // ← add autoReply
         .lean();
       if (activeCampaigns.length === 0) return;
 
@@ -75,7 +74,6 @@ export const startCampaignReplyCron = () => {
               console.log(`📩 Campaign reply detected from ${fromEmail}`);
 
               await checkAndMarkReply(fromEmail);
-
               await indexEmail(
                 accountId,
                 msg,
@@ -85,68 +83,69 @@ export const startCampaignReplyCron = () => {
                 account.user.toString(),
               );
 
-              // const emailText = `Subject: ${parsed.subject}\nFrom: ${parsed.from?.text}\n\n${parsed.text}`;
-              // const category = await categorizeEmail(emailText);
+              const leadDoc = await Lead.findOne({
+                email: fromEmail,
+                status: { $nin: ["opted-out", "responded"] },
+              });
 
-              // console.log("catgeory reply:", category);
-
-              const leadDoc = await Lead.findOne({ email: fromEmail });
-              if (!leadDoc) continue;
-
-              const campaignWithCategories = await Campaign.findById(
-                leadDoc.campaignId,
-              );
-              if (!campaignWithCategories) continue;
-
-              // Build label list from campaign's custom categories
-              const labels = campaignWithCategories.categories.map(
-                (c) => c.name,
-              );
-              if (labels.length === 0) continue; // no categories defined, skip
-
-              const emailText = `Subject: ${parsed.subject}\nFrom: ${parsed.from?.text}\n\n${parsed.text}`;
-              const category = await categorizeEmail(emailText, labels); // ← pass labels
-
-              if (category) {
-                await client.partialUpdateObject({
-                  indexName: "emails",
-                  objectID: `${accountId}-INBOX-${msg.uid}`,
-                  attributesToUpdate: { category },
-                  createIfNotExists: false,
-                });
+              if (!leadDoc) {
                 console.log(
-                  `🏷️ Categorized reply from ${fromEmail} as "${category}"`,
+                  `⚠️ Lead ${fromEmail} not found or already handled`,
                 );
+              } else {
+                const campaignDoc = await Campaign.findById(leadDoc.campaignId);
+                if (!campaignDoc) {
+                  console.log(`⚠️ Campaign not found for lead ${fromEmail}`);
+                } else {
+                  const emailText = `Subject: ${parsed.subject}\nFrom: ${parsed.from?.text}\n\n${parsed.text}`;
 
-                // Find matched category config
-                const matchedCategory = campaignWithCategories.categories.find(
-                  (c) => c.name === category,
-                );
+                  // ── Categorize for labeling only (optional) ──────────────
+                  const labels =
+                    campaignDoc.categories?.map((c) => c.name) ?? [];
+                  if (labels.length > 0) {
+                    const category = await categorizeEmail(emailText, labels);
+                    console.log(`🏷️ Category: ${category}`);
 
-                if (matchedCategory) {
-                  // Stop sequence if configured
-                  if (matchedCategory.stopSequence) {
-                    await Lead.findByIdAndUpdate(leadDoc._id, {
-                      $set: { status: "opted-out" },
-                    });
-                    console.log(
-                      `🛑 Sequence stopped for ${fromEmail} [${category}]`,
-                    );
+                    if (category) {
+                      // Update Algolia label
+                      await client.partialUpdateObject({
+                        indexName: "emails",
+                        objectID: `${accountId}-INBOX-${msg.uid}`,
+                        attributesToUpdate: { category },
+                        createIfNotExists: false,
+                      });
+
+                      // Stop sequence if configured
+                      const matchedCategory = campaignDoc.categories?.find(
+                        (c) => c.name === category,
+                      );
+                      if (matchedCategory?.stopSequence) {
+                        await Lead.findByIdAndUpdate(leadDoc._id, {
+                          $set: { status: "opted-out" },
+                        });
+                        console.log(`🛑 Sequence stopped for ${fromEmail}`);
+                      }
+                    }
                   }
 
-                  // Auto-reply if configured
-                  if (matchedCategory.autoReply) {
-                    await autoReplyByCategory(
-                      campaignWithCategories._id.toString(),
-                      campaignWithCategories.user.toString(),
+                  // ── Auto reply — global campaign toggle ──────────────────
+                  if (campaignDoc.autoReply) {
+                    console.log(`🤖 Auto-replying to ${fromEmail}`);
+                    await autoReply(
+                      campaignDoc._id.toString(),
+                      campaignDoc.user.toString(),
                       fromEmail,
-                      matchedCategory,
+                    );
+                  } else {
+                    console.log(
+                      `ℹ️ Auto-reply disabled for campaign "${campaignDoc.name}"`,
                     );
                   }
                 }
               }
             }
 
+            // Always update UID
             account.lastSyncedUID.set("INBOX", msg.uid);
             await EmailAccount.findByIdAndUpdate(accountId, {
               lastSyncedUID: account.lastSyncedUID,

@@ -21,6 +21,7 @@ import {
   getDraftReplyController,
   sendSingleReplyController,
   bulkMarkLeadsController,
+  updateAutoReplyController,
 } from "../controller/smartReply.controller";
 import { getLeadThreadController } from "../controller/leadThread.controller";
 import { getCampaignStatsController } from "../controller/campaignStats.controller";
@@ -83,6 +84,12 @@ campaignRouter.post(
   sendSingleReplyController,
 );
 campaignRouter.post("/:id/bulk-mark", authMiddleware, bulkMarkLeadsController);
+// Update auto-reply toggle
+campaignRouter.patch(
+  "/:id/auto-reply",
+  authMiddleware,
+  updateAutoReplyController,
+);
 
 // ── Thread ────────────────────────────────────────────────────────────────────
 campaignRouter.get("/:id/thread", authMiddleware, getLeadThreadController);

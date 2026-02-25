@@ -210,3 +210,22 @@ export const bulkMarkLeadsController = async (req: Request, res: Response) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const updateAutoReplyController = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const { autoReply } = req.body;
+    const campaign = await Campaign.findByIdAndUpdate(
+      req.params.id,
+      { $set: { autoReply } },
+      { new: true },
+    );
+    if (!campaign)
+      return res.status(404).json({ message: "Campaign not found" });
+    res.status(200).json(campaign);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
