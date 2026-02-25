@@ -7,6 +7,7 @@ import { decrypt } from "../utility/encryptionUtility";
 import Groq from "groq-sdk";
 import nodemailer from "nodemailer";
 import type { ICampaignCategory } from "../models/campaign.model";
+import { searchRelevantContext } from "./pineOutreachContext";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -60,11 +61,7 @@ export const autoReplyByCategory = async (
     if (!reply) return;
 
     // Pass category context to RAG reply generator
-    const aiReply = await generateCampaignReply(
-      campaignId,
-      reply.text,
-      category.context, // ← inject category-specific context
-    );
+    const aiReply = await generateCampaignReply(campaignId, reply.text);
     if (!aiReply) return;
 
     await sendReplyEmail(account, leadEmail, reply.subject, aiReply);
@@ -76,18 +73,43 @@ export const autoReplyByCategory = async (
 };
 
 // ── Generate AI reply ─────────────────────────────────────────────────────────
+// export const generateCampaignReply = async (
+//   campaignId: string,
+//   emailText: string,
+//   categoryContext?: string, // ← add this
+// ): Promise<string | null> => {
+//   try {
+//     const ragContext = await searchRelevantContext(emailText, campaignId);
+
+//     const prompt = `You are an email assistant helping with outreach campaigns. Use the context below to write a short, professional reply.
+
+// ${ragContext ? `Campaign context:\n${ragContext}\n` : ""}
+// ${categoryContext ? `Reply instructions for this type of email:\n${categoryContext}\n` : ""}
+// Email received:
+// ${emailText}
+
+// Write a concise, friendly reply (2-4 sentences max):`;
+
+//     const completion = await groq.chat.completions.create({
+//       model: "llama-3.1-8b-instant",
+//       messages: [{ role: "user", content: prompt }],
+//       max_tokens: 200,
+//     });
+//     return completion.choices[0]?.message?.content?.trim() ?? null;
+//   } catch {
+//     return null;
+//   }
+// };
 export const generateCampaignReply = async (
   campaignId: string,
   emailText: string,
-  categoryContext?: string, // ← add this
 ): Promise<string | null> => {
   try {
-    const ragContext = await searchCampaignContext(campaignId, emailText);
+    const ragContext = await searchRelevantContext(emailText, campaignId);
 
     const prompt = `You are an email assistant helping with outreach campaigns. Use the context below to write a short, professional reply.
 
-${ragContext ? `Campaign context:\n${ragContext}\n` : ""}
-${categoryContext ? `Reply instructions for this type of email:\n${categoryContext}\n` : ""}
+${ragContext ? `Campaign context:\n${ragContext}\n` : "No specific context available.\n"}
 Email received:
 ${emailText}
 
@@ -103,7 +125,6 @@ Write a concise, friendly reply (2-4 sentences max):`;
     return null;
   }
 };
-
 // ── Send reply via SMTP ───────────────────────────────────────────────────────
 export const sendReplyEmail = async (
   account: any,
@@ -291,4 +312,60 @@ export const bulkMarkLeads = async (
   }
 
   return { updated };
+};
+
+export const autoReply = async (
+  campaignId: string,
+  userId: string,
+  leadEmail: string,
+): Promise<void> => {
+  console.log(`🔍 autoReply started for ${leadEmail}`);
+
+  const campaign = await Campaign.findOne({ _id: campaignId, user: userId });
+  if (!campaign) {
+    console.log(`❌ Campaign not found`);
+    return;
+  }
+  console.log(`✅ Campaign found: ${campaign.name}`);
+
+  const account = await EmailAccount.findById(campaign.emailAccount);
+  if (!account) {
+    console.log(`❌ Email account not found`);
+    return;
+  }
+  console.log(`✅ Email account found: ${account.email}`);
+
+  const lead = await Lead.findOne({ email: leadEmail, campaignId });
+  if (!lead) {
+    console.log(`❌ Lead not found`);
+    return;
+  }
+  console.log(`✅ Lead found: ${lead.email}`);
+
+  try {
+    console.log(`🔍 Fetching reply from Algolia...`);
+    const reply = await getLeadReplyFromAlgolia(
+      leadEmail,
+      account._id.toString(),
+    );
+    if (!reply) {
+      console.log(`❌ No reply found in Algolia`);
+      return;
+    }
+    console.log(`✅ Reply found: ${reply.subject}`);
+
+    console.log(`🔍 Generating AI reply...`);
+    const aiReply = await generateCampaignReply(campaignId, reply.text);
+    if (!aiReply) {
+      console.log(`❌ AI reply generation failed`);
+      return;
+    }
+    console.log(`✅ AI reply generated`);
+
+    await sendReplyEmail(account, leadEmail, reply.subject, aiReply);
+    await Lead.findByIdAndUpdate(lead._id, { $set: { status: "responded" } });
+    console.log(`✅ Auto-replied to ${leadEmail}`);
+  } catch (err: any) {
+    console.error(`❌ Auto-reply failed for ${leadEmail}:`, err.message);
+  }
 };

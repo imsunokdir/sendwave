@@ -4,6 +4,11 @@ import {
   getCampaignContext,
   deleteCampaignContext,
 } from "../services/campaignContext";
+import {
+  deleteOutreachContext,
+  saveOutreachContext,
+} from "../services/pineOutreachContext";
+import { CampaignContext } from "../models/campaignContext.model";
 
 export const saveCampaignContextController = async (
   req: Request,
@@ -11,9 +16,16 @@ export const saveCampaignContextController = async (
 ) => {
   try {
     const { text } = req.body;
+    const campaignId = req.params.id;
     if (!text) return res.status(400).json({ message: "text is required" });
-    const id = await saveCampaignContext(req.params.id, text);
-    res.status(201).json({ message: "Context saved", id });
+
+    // Save to Pinecone → get id back
+    const pineconeId = await saveOutreachContext(text, campaignId);
+
+    // Save to MongoDB for display
+    const ctx = await CampaignContext.create({ campaignId, text, pineconeId });
+
+    res.status(201).json({ message: "Context saved", id: ctx._id });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -24,8 +36,10 @@ export const getCampaignContextController = async (
   res: Response,
 ) => {
   try {
-    const context = await getCampaignContext(req.params.id);
-    res.status(200).json(context);
+    const items = await CampaignContext.find({
+      campaignId: req.params.id,
+    }).sort({ createdAt: -1 });
+    res.status(200).json(items);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -36,7 +50,18 @@ export const deleteCampaignContextController = async (
   res: Response,
 ) => {
   try {
-    await deleteCampaignContext(req.params.contextId);
+    const { contextId } = req.params;
+
+    // Find in MongoDB to get pineconeId
+    const ctx = await CampaignContext.findById(contextId);
+    if (!ctx) return res.status(404).json({ message: "Context not found" });
+
+    // Delete from Pinecone
+    await deleteOutreachContext(ctx.pineconeId);
+
+    // Delete from MongoDB
+    await CampaignContext.findByIdAndDelete(contextId);
+
     res.status(200).json({ message: "Context deleted" });
   } catch (err: any) {
     res.status(500).json({ message: err.message });

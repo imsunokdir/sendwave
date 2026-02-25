@@ -5,12 +5,15 @@ import {
   getAllOutreachContext,
   saveOutreachContext,
 } from "../services/pineOutreachContext";
-import { generateReplySuggestion } from "../services/pineRagReply";
+// import { generateReplySuggestion } from "../services/pineRagReply";
 
 export const saveContext = async (req: Request, res: Response) => {
-  const { text } = req.body;
+  const { text, campaignId } = req.body;
   if (!text) return res.status(400).json({ message: "Text is required" });
-  await saveOutreachContext(text);
+  if (!campaignId)
+    return res.status(400).json({ message: "Campaign ID is required" });
+
+  await saveOutreachContext(text, campaignId);
   res.status(201).json({ message: "Context saved!" });
 };
 
@@ -24,17 +27,17 @@ export const deleteContext = async (req: Request, res: Response) => {
   res.status(200).json({ message: "Context deleted!" });
 };
 
-export const generateReplySuggestionsPine = async (
-  req: Request,
-  res: Response,
-) => {
-  const { emailText } = req.body;
-  if (!emailText)
-    return res.status(400).json({ message: "emailText is required" });
+// export const generateReplySuggestionsPine = async (
+//   req: Request,
+//   res: Response,
+// ) => {
+//   const { emailText } = req.body;
+//   if (!emailText)
+//     return res.status(400).json({ message: "emailText is required" });
 
-  const reply = await generateReplySuggestion(emailText);
-  if (!reply)
-    return res.status(500).json({ message: "Could not generate reply" });
+//   const reply = await generateReplySuggestion(emailText);
+//   if (!reply)
+//     return res.status(500).json({ message: "Could not generate reply" });
 
-  res.status(200).json({ reply });
-};
+//   res.status(200).json({ reply });
+// };
