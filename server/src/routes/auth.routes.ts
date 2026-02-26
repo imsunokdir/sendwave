@@ -9,6 +9,7 @@ import {
   updateProfile,
 } from "../controller/authController";
 import { authMiddleware } from "../middlewares/authMiddlewares";
+import { googleCallback, googleConnect } from "../controller/oauth.controller";
 
 const authRouter = express.Router();
 
@@ -26,5 +27,8 @@ authRouter.patch("/change-password", authMiddleware, changePassword);
 
 // Delete account
 // authRouter.delete("/delete-account", authMiddleware, deleteAccount);
+
+authRouter.get("/google/connect", authMiddleware, googleConnect);
+authRouter.get("/google/callback", googleCallback);
 
 export default authRouter;

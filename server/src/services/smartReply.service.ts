@@ -8,6 +8,7 @@ import Groq from "groq-sdk";
 import nodemailer from "nodemailer";
 import type { ICampaignCategory } from "../models/campaign.model";
 import { searchRelevantContext } from "./pineOutreachContext";
+import { getValidAccessToken } from "./tokenRefresh";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -17,15 +18,30 @@ export const getLeadReplyFromAlgolia = async (
   accountId: string,
 ): Promise<{ text: string; subject: string; category: string } | null> => {
   try {
+    console.log(
+      `🔍 Searching Algolia for ${fromEmail} in account ${accountId}`,
+    );
+
     const results = await client.searchSingleIndex({
       indexName: "emails",
       searchParams: {
         query: "",
         filters: `accountId:"${accountId}" AND folder:"INBOX" AND from:"${fromEmail}"`,
         hitsPerPage: 1,
-        attributesToRetrieve: ["text", "subject", "category"],
+        attributesToRetrieve: [
+          "text",
+          "subject",
+          "category",
+          "from",
+          "accountId",
+          "folder",
+        ],
       },
     });
+
+    console.log(`🔍 Algolia hits: ${results.hits.length}`);
+    if (results.hits.length > 0) console.log(`🔍 First hit:`, results.hits[0]);
+
     const hit = results.hits[0] as any;
     if (!hit) return null;
     return {
@@ -33,7 +49,8 @@ export const getLeadReplyFromAlgolia = async (
       subject: hit.subject || "",
       category: hit.category || "Uncategorized",
     };
-  } catch {
+  } catch (err: any) {
+    console.error(`❌ Algolia search error:`, err.message);
     return null;
   }
 };
@@ -107,13 +124,17 @@ export const generateCampaignReply = async (
   try {
     const ragContext = await searchRelevantContext(emailText, campaignId);
 
-    const prompt = `You are an email assistant helping with outreach campaigns. Use the context below to write a short, professional reply.
+    const prompt = `You are a professional email assistant for an outreach campaign. 
 
-${ragContext ? `Campaign context:\n${ragContext}\n` : "No specific context available.\n"}
-Email received:
+${ragContext ? `Follow these reply instructions:\n${ragContext}\n` : ""}
+
+Reply to this email professionally and concisely (2-3 sentences max):
 ${emailText}
 
-Write a concise, friendly reply (2-4 sentences max):`;
+Important: 
+- Be professional and natural
+- Don't mention "campaign" or "instructions"
+- Sound like a real person replying`;
 
     const completion = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
@@ -126,18 +147,42 @@ Write a concise, friendly reply (2-4 sentences max):`;
   }
 };
 // ── Send reply via SMTP ───────────────────────────────────────────────────────
+// export const sendReplyEmail = async (
+//   account: any,
+//   toEmail: string,
+//   subject: string,
+//   body: string,
+// ): Promise<void> => {
+//   const password = decrypt(account.passwordEnc);
+//   const transporter = nodemailer.createTransport({
+//     host: account.imapHost.replace("imap.", "smtp."),
+//     port: 465,
+//     secure: true,
+//     auth: { user: account.email, pass: password },
+//   });
+//   await transporter.sendMail({
+//     from: account.email,
+//     to: toEmail,
+//     subject: subject.startsWith("Re:") ? subject : `Re: ${subject}`,
+//     text: body,
+//   });
+// };
 export const sendReplyEmail = async (
   account: any,
   toEmail: string,
   subject: string,
   body: string,
 ): Promise<void> => {
-  const password = decrypt(account.passwordEnc);
+  const accessToken = await getValidAccessToken(account._id.toString()); // ← replace decrypt
   const transporter = nodemailer.createTransport({
     host: account.imapHost.replace("imap.", "smtp."),
     port: 465,
     secure: true,
-    auth: { user: account.email, pass: password },
+    auth: {
+      type: "OAuth2",
+      user: account.email,
+      accessToken, // ← replace pass
+    },
   });
   await transporter.sendMail({
     from: account.email,

@@ -1,20 +1,20 @@
 import { Request, Response } from "express";
 import {
-  elasticClient,
+  // elasticClient,
   getAllEmails,
   getEmailById,
   searchEmails,
 } from "../services/elasticSearch";
 import { recategorizePendingEmails } from "../ai/reCategorizejob";
-import { generateSuggestedReplies } from "../ai/geminiSuggestedReplies";
+// import { generateSuggestedReplies } from "../ai/geminiSuggestedReplies";
 import { EmailType } from "../types/EmailTypes";
-import nodemailer from "nodemailer";
-import { generateRAGRepliesGemini } from "../ai/ragReplies";
-import { ai } from "src/ai/gemini";
+// import nodemailer from "nodemailer";
+// import { generateRAGRepliesGemini } from "../ai/ragReplies";
+// import { ai } from "src/ai/gemini";
 import { generateRAGRepliesOllama } from "../ai/ollamaSuggestedReplies";
 import { EmailAccount } from "../models/emailAccounts.model";
 import { client } from "../config/algoliaClient";
-import { batchCategorizeEmails } from "../ai/batchCatgegorize";
+// import { batchCategorizeEmails } from "../ai/batchCatgegorize";
 
 type EmailsResponse = {
   emails: EmailType[];

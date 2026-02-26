@@ -1,6 +1,7 @@
 import { WebClient } from "@slack/web-api";
 import dontenv from "dotenv";
 import axios from "axios";
+dontenv.config();
 
 // Slack client (optional - only if SLACK_TOKEN is provided)
 const slackToken = process.env.SLACK_BOT_TOKEN;
@@ -25,7 +26,7 @@ interface EmailData {
  * Send Slack notification for "Interested" emails
  */
 export const sendSlackNotification = async (
-  emailData: EmailData
+  emailData: EmailData,
 ): Promise<void> => {
   if (!slackClient || !slackChannelId) {
     console.log("⏭️ Slack not configured, skipping notification");
@@ -120,7 +121,7 @@ export const triggerWebhook = async (emailData: EmailData): Promise<void> => {
  * Main notification handler for "Interested" emails
  */
 export const notifyInterestedEmail = async (
-  emailData: EmailData
+  emailData: EmailData,
 ): Promise<void> => {
   if (emailData.category !== "Interested") {
     return; // Only notify for "Interested" emails

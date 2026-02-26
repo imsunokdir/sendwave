@@ -1,7 +1,7 @@
 import { Client } from "@elastic/elasticsearch";
 import { simpleParser } from "mailparser";
-import { categorizeEmail } from "../ai/ollamaAiCategorization";
-import { sendInterestedNotifications } from "./notify";
+// import { categorizeEmail } from "../ai/ollamaAiCategorization";
+// import { sendInterestedNotifications } from "./notify";
 import { EmailType } from "src/types/EmailTypes";
 // import { categorizeEmail } from "../ai/groqAiCategorization";
 // import { categorizeEmail } from "../ai/geminiCategorization";

@@ -5,6 +5,7 @@ import { Campaign } from "../models/campaign.model";
 import { Lead } from "../models/lead.model";
 import { EmailAccount } from "../models/emailAccounts.model";
 import { decrypt } from "../utility/encryptionUtility";
+import { getValidAccessToken } from "../services/tokenRefresh";
 
 export const startCampaignWorker = () => {
   const worker = new Worker(
@@ -40,12 +41,16 @@ export const startCampaignWorker = () => {
       const step = campaign.steps.find((s) => s.order === stepIndex);
       if (!step) throw new Error(`Step ${stepIndex} not found`);
 
-      const password = decrypt(account.passwordEnc);
+      const accessToken = await getValidAccessToken(account._id.toString());
       const transporter = nodemailer.createTransport({
         host: account.imapHost.replace("imap.", "smtp."),
         port: 465,
         secure: true,
-        auth: { user: account.email, pass: password },
+        auth: {
+          type: "OAuth2",
+          user: account.email,
+          accessToken,
+        },
       });
 
       await transporter.sendMail({
@@ -71,7 +76,14 @@ export const startCampaignWorker = () => {
         $inc: { "stats.sent": 1 },
       });
     },
-    { connection: redisConnection, concurrency: 5 },
+    {
+      connection: redisConnection,
+      concurrency: 5,
+      stalledInterval: 60000, // check stalled jobs every 60s (default 30s)
+      lockDuration: 60000, // lock jobs for 60s
+      removeOnComplete: { count: 10 }, // keep only last 10 completed
+      removeOnFail: { count: 20 }, // keep only last 20 failed
+    },
   );
 
   worker.on("completed", (job) =>

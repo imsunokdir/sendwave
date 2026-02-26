@@ -2,6 +2,9 @@ import { Campaign } from "../models/campaign.model";
 import { Lead } from "../models/lead.model";
 import type { ICampaign } from "../models/campaign.model";
 import { EmailAccount } from "../models/emailAccounts.model";
+import { CampaignContext } from "../models/campaignContext.model";
+import { pineconeIndex } from "../config/pinecone";
+import { client } from "../config/algoliaClient";
 
 // ── Create ────────────────────────────────────────────────────────────────────
 export const createCampaign = async (
@@ -41,9 +44,43 @@ export const updateCampaign = async (
 };
 
 // ── Delete ────────────────────────────────────────────────────────────────────
+// export const deleteCampaign = async (id: string, userId: string) => {
+//   const campaign = await Campaign.findOneAndDelete({ _id: id, user: userId });
+//   if (campaign) await Lead.deleteMany({ campaignId: id });
+// };
+
 export const deleteCampaign = async (id: string, userId: string) => {
   const campaign = await Campaign.findOneAndDelete({ _id: id, user: userId });
-  if (campaign) await Lead.deleteMany({ campaignId: id });
+  if (!campaign) return;
+
+  // 1. Delete leads
+  await Lead.deleteMany({ campaignId: id });
+
+  // 2. Delete context from MongoDB
+  await CampaignContext.deleteMany({ campaignId: id });
+
+  // 3. Delete vectors from Pinecone
+  try {
+    await pineconeIndex.deleteMany({
+      filter: { campaignId: { $eq: id } }, // ← wrap in filter
+    });
+    console.log(`🗑️ Deleted Pinecone vectors for campaign ${id}`);
+  } catch (err: any) {
+    console.error(`❌ Pinecone cleanup failed:`, err.message);
+  }
+
+  // 4. Delete indexed emails from Algolia
+  try {
+    await client.deleteBy({
+      indexName: "emails",
+      deleteByParams: {
+        filters: `campaignId:"${id}"`,
+      },
+    });
+    console.log(`🗑️ Deleted Algolia emails for campaign ${id}`);
+  } catch (err: any) {
+    console.error(`❌ Algolia cleanup failed:`, err.message);
+  }
 };
 
 // ── Set status ────────────────────────────────────────────────────────────────
