@@ -232,7 +232,3 @@ Lead replies → IMAP cron detects it → classified by AI → if positive, RAG 
 - **Hardcoded categories** — Zero-shot classification with fixed labels ensures consistent behavior without user configuration
 
 ---
-
-## 📄 License
-
-MIT
