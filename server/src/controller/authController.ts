@@ -7,10 +7,10 @@ import {
 import { User } from "../models/User.model";
 // import { registerService, loginService, refreshService } from "../services/auth.service";
 import bcrypt from "bcryptjs";
-import { Campaign } from "src/models/campaign.model";
-import { EmailAccount } from "src/models/emailAccounts.model";
-import { pineconeIndex } from "src/config/pinecone";
-import { client } from "src/config/algoliaClient";
+// import { Campaign } from "src/models/campaign.model";
+// import { EmailAccount } from "src/models/emailAccounts.model";
+// import { pineconeIndex } from "src/config/pinecone";
+// import { client } from "src/config/algoliaClient";
 
 export const registerUser = async (req: Request, res: Response) => {
   try {

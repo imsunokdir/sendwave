@@ -1,19 +1,12 @@
-import { pipeline } from "@xenova/transformers";
+import { InferenceClient } from "@huggingface/inference";
+require("dotenv").config();
 
-let embedder: any = null;
-
-// Load model once and reuse
-const getEmbedder = async () => {
-  if (!embedder) {
-    console.log("Loading embedding model...");
-    embedder = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
-    console.log("Embedding model loaded!");
-  }
-  return embedder;
-};
+const hf = new InferenceClient(process.env.HUGGINGFACE_API_TOKEN);
 
 export const generateEmbedding = async (text: string): Promise<number[]> => {
-  const embedder = await getEmbedder();
-  const output = await embedder(text, { pooling: "mean", normalize: true });
-  return Array.from(output.data) as number[];
+  const result = await hf.featureExtraction({
+    model: "sentence-transformers/all-MiniLM-L6-v2",
+    inputs: text,
+  });
+  return Array.from(result as number[]);
 };

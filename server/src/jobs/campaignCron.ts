@@ -9,7 +9,7 @@ const campaignQueue = new Queue("campaign-sender", {
 });
 
 export const startCampaignCron = () => {
-  cron.schedule("* * * * *", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     try {
       const now = new Date();
       const istOffset = 5.5 * 60 * 60 * 1000;

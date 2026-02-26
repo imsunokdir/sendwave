@@ -1,13 +1,13 @@
-import { ImapFlow } from "imapflow";
-import { decrypt } from "../utility/encryptionUtility";
+// import { ImapFlow } from "imapflow";
+// import { decrypt } from "../utility/encryptionUtility";
 import { EmailAccount } from "../models/emailAccounts.model";
 import pino from "pino";
 import { providerFolderMap } from "../utility/emailFolder";
 import { indexEmail } from "./indexEmailsAlgolia";
 import { simpleParser } from "mailparser";
-import { categorizeEmail } from "../ai/hgnFaceCategorization";
+// import { categorizeEmail } from "../ai/hgnFaceCategorization";
 import { client } from "../config/algoliaClient";
-import { sendInterestedNotifications } from "./notify";
+// import { sendInterestedNotifications } from "./notify";
 import { createImapClient } from "../utility/imapConnect";
 import { checkAndMarkReply } from "./replyDetection";
 
@@ -23,7 +23,7 @@ export const fetchEmailsAndIndex = async (
   const imapFolder =
     providerFolderMap[provider]?.[folder.toUpperCase()] || folder;
 
-  const imapClient = createImapClient(account);
+  const imapClient = await createImapClient(account);
 
   await imapClient.connect();
   await imapClient.mailboxOpen(imapFolder);

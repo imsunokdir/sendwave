@@ -9,7 +9,7 @@ export const campaignQueue = new Queue("campaign-sender", {
       type: "exponential",
       delay: 5000,
     },
-    removeOnComplete: true,
-    removeOnFail: false,
+    removeOnComplete: { count: 10 }, // keeping only last 10 (im on free tier)
+    removeOnFail: { count: 20 }, // keeping only last 20 failed (im on free tier)
   },
 });

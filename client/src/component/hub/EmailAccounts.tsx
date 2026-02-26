@@ -83,8 +83,8 @@ export default function EmailAccounts() {
   const { accounts, isLoading, setAccounts, refetch } = useAccounts();
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  // const [submitting, setSubmitting] = useState(false);
+  // const [error, setError] = useState("");
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -103,40 +103,40 @@ export default function EmailAccounts() {
     });
 
   // ── Handlers ────────────────────────────────────────────────────────────────
-  const handleAdd = async () => {
-    setError("");
-    setSubmitting(true);
-    try {
-      const payload: any = {
-        provider: form.provider,
-        email: form.email,
-        password: form.password,
-      };
+  // const handleAdd = async () => {
+  //   setError("");
+  //   setSubmitting(true);
+  //   try {
+  //     const payload: any = {
+  //       provider: form.provider,
+  //       email: form.email,
+  //       password: form.password,
+  //     };
 
-      // Only send IMAP fields for custom provider
-      if (form.provider === "custom") {
-        payload.imapHost = form.imapHost;
-        payload.imapPort = parseInt(form.imapPort);
-        payload.imapTLS = form.imapTLS;
-      }
+  //     // Only send IMAP fields for custom provider
+  //     if (form.provider === "custom") {
+  //       payload.imapHost = form.imapHost;
+  //       payload.imapPort = parseInt(form.imapPort);
+  //       payload.imapTLS = form.imapTLS;
+  //     }
 
-      await addEmailAccountService(payload);
-      setShowForm(false);
-      setForm({
-        email: "",
-        password: "",
-        imapHost: "",
-        imapPort: "993",
-        imapTLS: true,
-        provider: "gmail",
-      });
-      refetch();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to add account");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  //     await addEmailAccountService(payload);
+  //     setShowForm(false);
+  //     setForm({
+  //       email: "",
+  //       password: "",
+  //       imapHost: "",
+  //       imapPort: "993",
+  //       imapTLS: true,
+  //       provider: "gmail",
+  //     });
+  //     refetch();
+  //   } catch (err: any) {
+  //     setError(err.response?.data?.message || "Failed to add account");
+  //   } finally {
+  //     setSubmitting(false);
+  //   }
+  // };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Remove this account?")) return;
@@ -151,35 +151,35 @@ export default function EmailAccounts() {
     }
   };
 
-  const handleToggleSync = async (id: string, current: boolean) => {
-    setAccountLoading(id, true);
-    try {
-      await toggleSyncService(id);
-      setAccounts((p) =>
-        p.map((a) => (a._id === id ? { ...a, isActive: !current } : a)),
-      );
-    } catch {
-      console.error("Failed to toggle sync");
-    } finally {
-      setAccountLoading(id, false);
-    }
-  };
+  // const handleToggleSync = async (id: string, current: boolean) => {
+  //   setAccountLoading(id, true);
+  //   try {
+  //     await toggleSyncService(id);
+  //     setAccounts((p) =>
+  //       p.map((a) => (a._id === id ? { ...a, isActive: !current } : a)),
+  //     );
+  //   } catch {
+  //     console.error("Failed to toggle sync");
+  //   } finally {
+  //     setAccountLoading(id, false);
+  //   }
+  // };
 
-  const handleToggleNotifications = async (id: string, current: boolean) => {
-    setAccountLoading(id, true);
-    try {
-      await toggleNotificationsService(id);
-      setAccounts((p) =>
-        p.map((a) =>
-          a._id === id ? { ...a, notificationsEnabled: !current } : a,
-        ),
-      );
-    } catch {
-      console.error("Failed to toggle notifications");
-    } finally {
-      setAccountLoading(id, false);
-    }
-  };
+  // const handleToggleNotifications = async (id: string, current: boolean) => {
+  //   setAccountLoading(id, true);
+  //   try {
+  //     await toggleNotificationsService(id);
+  //     setAccounts((p) =>
+  //       p.map((a) =>
+  //         a._id === id ? { ...a, notificationsEnabled: !current } : a,
+  //       ),
+  //     );
+  //   } catch {
+  //     console.error("Failed to toggle notifications");
+  //   } finally {
+  //     setAccountLoading(id, false);
+  //   }
+  // };
 
   // ── Render ──────────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -204,7 +204,7 @@ export default function EmailAccounts() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {/* ── Account cards ── */}
-      {accounts.length === 0 && !showForm && (
+      {accounts.length === 0 && (
         <div
           style={{
             background: "#fff",
@@ -372,7 +372,7 @@ export default function EmailAccounts() {
       })}
 
       {/* ── Add account button ── */}
-      <button
+      {/* <button
         onClick={() => setShowForm(!showForm)}
         onMouseEnter={(e) => {
           e.currentTarget.style.borderColor = "#6366f1";
@@ -401,215 +401,78 @@ export default function EmailAccounts() {
         }}
       >
         <Plus size={15} /> Connect account
+      </button> */}
+
+      {/* ── Inline form ── */}
+      {/* ── Inline form ── */}
+
+      {/* Connect Gmail button */}
+      <button
+        onClick={() =>
+          (window.location.href = `${import.meta.env.VITE_BASE_URL}/auth/google/connect`)
+        }
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = "#ef4444";
+          e.currentTarget.style.color = "#ef4444";
+          e.currentTarget.style.background = "#fef2f2";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = "#d1d5db";
+          e.currentTarget.style.color = "#6b7280";
+          e.currentTarget.style.background = "transparent";
+        }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          padding: "11px 16px",
+          border: "1.5px dashed #d1d5db",
+          borderRadius: 14,
+          background: "transparent",
+          color: "#6b7280",
+          fontSize: 13,
+          fontWeight: 500,
+          cursor: "pointer",
+          transition: "all .15s",
+        }}
+      >
+        <span style={{ fontSize: 16, fontWeight: 700, color: "#ef4444" }}>
+          G
+        </span>
+        Connect Gmail
       </button>
 
-      {/* ── Inline form ── */}
-      {/* ── Inline form ── */}
-      {showForm && (
+      {/* Show success/error from OAuth redirect */}
+      {new URLSearchParams(window.location.search).get("connected") ===
+        "true" && (
         <div
           style={{
-            background: "#f9fafb",
-            border: "1px solid #e5e7eb",
-            borderRadius: 14,
-            padding: 18,
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
+            padding: "10px 14px",
+            background: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            borderRadius: 9,
+            fontSize: 13,
+            color: "#16a34a",
+            fontWeight: 500,
           }}
         >
-          <p
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#374151",
-              margin: 0,
-            }}
-          >
-            New email account
-          </p>
-          {error && (
-            <p style={{ fontSize: 12, color: "#ef4444", margin: 0 }}>{error}</p>
-          )}
-
-          {/* Provider dropdown — always shown first */}
-          <select
-            value={form.provider}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                provider: e.target.value,
-                imapHost: "",
-                imapPort: "993",
-                imapTLS: true,
-              })
-            }
-            style={{
-              padding: "9px 12px",
-              border: "1px solid #e5e7eb",
-              borderRadius: 9,
-              fontSize: 13,
-              outline: "none",
-              background: "#fff",
-              color: "#111827",
-            }}
-          >
-            <option value="gmail">Gmail</option>
-            <option value="outlook">Outlook</option>
-            <option value="yahoo">Yahoo</option>
-            <option value="custom">Custom / Other</option>
-          </select>
-
-          {/* Email + Password — always shown */}
-          <input
-            type="email"
-            placeholder="Email address"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            style={{
-              padding: "9px 12px",
-              border: "1px solid #e5e7eb",
-              borderRadius: 9,
-              fontSize: 13,
-              outline: "none",
-              background: "#fff",
-              color: "#111827",
-            }}
-          />
-          <input
-            type="password"
-            placeholder="App password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            style={{
-              padding: "9px 12px",
-              border: "1px solid #e5e7eb",
-              borderRadius: 9,
-              fontSize: 13,
-              outline: "none",
-              background: "#fff",
-              color: "#111827",
-            }}
-          />
-
-          {/* IMAP fields — only shown for custom provider */}
-          {isCustom && (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-                padding: "10px 12px",
-                background: "#fff",
-                border: "1px solid #e5e7eb",
-                borderRadius: 10,
-              }}
-            >
-              <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
-                Custom IMAP settings
-              </p>
-              <input
-                type="text"
-                placeholder="IMAP host (e.g. imap.yourcompany.com)"
-                value={form.imapHost}
-                onChange={(e) => setForm({ ...form, imapHost: e.target.value })}
-                style={{
-                  padding: "9px 12px",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 9,
-                  fontSize: 13,
-                  outline: "none",
-                  background: "#f9fafb",
-                  color: "#111827",
-                }}
-              />
-              <div style={{ display: "flex", gap: 10 }}>
-                <input
-                  type="number"
-                  placeholder="Port (993)"
-                  value={form.imapPort}
-                  onChange={(e) =>
-                    setForm({ ...form, imapPort: e.target.value })
-                  }
-                  style={{
-                    flex: 1,
-                    padding: "9px 12px",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 9,
-                    fontSize: 13,
-                    outline: "none",
-                    background: "#f9fafb",
-                    color: "#111827",
-                  }}
-                />
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 13,
-                    color: "#6b7280",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={form.imapTLS}
-                    onChange={(e) =>
-                      setForm({ ...form, imapTLS: e.target.checked })
-                    }
-                    style={{ width: 15, height: 15, accentColor: "#6366f1" }}
-                  />
-                  Use TLS/SSL
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Helper text for known providers */}
-          {!isCustom && (
-            <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
-              ✓ IMAP settings for{" "}
-              {form.provider.charAt(0).toUpperCase() + form.provider.slice(1)}{" "}
-              will be configured automatically.
-            </p>
-          )}
-
-          <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
-            <button
-              onClick={handleAdd}
-              disabled={submitting}
-              style={{
-                padding: "8px 20px",
-                background: "#6366f1",
-                color: "#fff",
-                border: "none",
-                borderRadius: 9,
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: submitting ? "default" : "pointer",
-                opacity: submitting ? 0.6 : 1,
-              }}
-            >
-              {submitting ? "Adding…" : "Add account"}
-            </button>
-            <button
-              onClick={() => {
-                setShowForm(false);
-                setError("");
-              }}
-              style={{
-                padding: "8px 20px",
-                background: "#e5e7eb",
-                color: "#374151",
-                border: "none",
-                borderRadius: 9,
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
-            >
-              Cancel
-            </button>
-          </div>
+          ✅ Gmail account connected successfully!
+        </div>
+      )}
+      {new URLSearchParams(window.location.search).get("error") === "true" && (
+        <div
+          style={{
+            padding: "10px 14px",
+            background: "#fef2f2",
+            border: "1px solid #fecaca",
+            borderRadius: 9,
+            fontSize: 13,
+            color: "#ef4444",
+            fontWeight: 500,
+          }}
+        >
+          ❌ Failed to connect Gmail. Please try again.
         </div>
       )}
     </div>

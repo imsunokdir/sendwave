@@ -1,6 +1,6 @@
 import express from "express";
 import {
-  searchEmailsC,
+  // searchEmailsC,
   reCatgorizeEmails,
   getAllEmailsController,
   getEmailByIdController,
@@ -16,7 +16,7 @@ import {
   toggleCronAcc,
   toggleNotification,
 } from "../controller/emailAccController";
-import cors from "cors";
+// import cors from "cors";
 
 const emailRouter = express.Router();
 

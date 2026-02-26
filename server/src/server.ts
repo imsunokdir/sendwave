@@ -17,6 +17,7 @@ import campaignRouter from "./routes/campaign.routes";
 import { startCampaignWorker } from "./workers/campaignWorker";
 import { startCampaignCron } from "./jobs/campaignCron";
 import { startCampaignReplyCron } from "./jobs/campaignReplyCron";
+// import oauthRouter from "./routes/oauth.routes";
 
 dotenv.config();
 
@@ -44,6 +45,7 @@ app.use("/sync", syncRouter);
 app.use("/outreach", outreachRouter);
 app.use("/test", testRouter);
 app.use("/campaigns", campaignRouter);
+// app.use("/oauth", oauthRouter);
 
 // ---------------- SERVER STARTUP ----------------
 const startServer = async () => {

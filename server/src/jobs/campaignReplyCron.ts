@@ -7,8 +7,11 @@ import { createImapClient } from "../utility/imapConnect";
 import { simpleParser } from "mailparser";
 import { indexEmail } from "../services/indexEmailsAlgolia";
 import { categorizeEmail } from "../ai/hgnFaceCategorization";
-import { client } from "../config/algoliaClient";
-import { autoReply } from "../services/smartReply.service"; // ← updated import
+import { autoReply } from "../services/smartReply.service";
+
+// ── Hardcoded categories ───────────────────────────────────────────────────────
+const DEFAULT_LABELS = ["Interested", "Not Interested", "Spam", "Confused"];
+const STOP_SEQUENCE_CATEGORIES = ["Not Interested", "Spam"];
 
 const getActiveCampaignLeadEmails = async (): Promise<Set<string>> => {
   const activeCampaigns = await Campaign.find({ status: "active" })
@@ -24,10 +27,10 @@ const getActiveCampaignLeadEmails = async (): Promise<Set<string>> => {
 };
 
 export const startCampaignReplyCron = () => {
-  cron.schedule("*/2 * * * *", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     try {
       const activeCampaigns = await Campaign.find({ status: "active" })
-        .select("emailAccount categories user autoReply") // ← add autoReply
+        .select("emailAccount user autoReply")
         .lean();
       if (activeCampaigns.length === 0) return;
 
@@ -41,7 +44,7 @@ export const startCampaignReplyCron = () => {
         if (!account) continue;
 
         try {
-          const imapClient = createImapClient(account);
+          const imapClient = await createImapClient(account);
           await imapClient.connect();
           await imapClient.mailboxOpen("INBOX");
 
@@ -73,7 +76,20 @@ export const startCampaignReplyCron = () => {
             if (fromEmail && leadEmails.has(fromEmail)) {
               console.log(`📩 Campaign reply detected from ${fromEmail}`);
 
+              const leadDoc = await Lead.findOne({
+                email: fromEmail,
+                campaignId: { $in: activeCampaigns.map((c) => c._id) },
+                status: { $nin: ["opted-out", "responded"] },
+              });
+
               await checkAndMarkReply(fromEmail);
+
+              // ── Categorize BEFORE indexing ─────────────────────────────
+              const emailText = `Subject: ${parsed.subject}\nFrom: ${parsed.from?.text}\n\n${parsed.text}`;
+              const category = await categorizeEmail(emailText, DEFAULT_LABELS);
+              console.log(`🏷️ Category: ${category}`);
+
+              // ── Index with category already set ────────────────────────
               await indexEmail(
                 accountId,
                 msg,
@@ -81,12 +97,9 @@ export const startCampaignReplyCron = () => {
                 "INBOX",
                 account.email,
                 account.user.toString(),
+                leadDoc?.campaignId?.toString(),
+                category ?? "Uncategorized",
               );
-
-              const leadDoc = await Lead.findOne({
-                email: fromEmail,
-                status: { $nin: ["opted-out", "responded"] },
-              });
 
               if (!leadDoc) {
                 console.log(
@@ -97,38 +110,17 @@ export const startCampaignReplyCron = () => {
                 if (!campaignDoc) {
                   console.log(`⚠️ Campaign not found for lead ${fromEmail}`);
                 } else {
-                  const emailText = `Subject: ${parsed.subject}\nFrom: ${parsed.from?.text}\n\n${parsed.text}`;
-
-                  // ── Categorize for labeling only (optional) ──────────────
-                  const labels =
-                    campaignDoc.categories?.map((c) => c.name) ?? [];
-                  if (labels.length > 0) {
-                    const category = await categorizeEmail(emailText, labels);
-                    console.log(`🏷️ Category: ${category}`);
-
-                    if (category) {
-                      // Update Algolia label
-                      await client.partialUpdateObject({
-                        indexName: "emails",
-                        objectID: `${accountId}-INBOX-${msg.uid}`,
-                        attributesToUpdate: { category },
-                        createIfNotExists: false,
-                      });
-
-                      // Stop sequence if configured
-                      const matchedCategory = campaignDoc.categories?.find(
-                        (c) => c.name === category,
-                      );
-                      if (matchedCategory?.stopSequence) {
-                        await Lead.findByIdAndUpdate(leadDoc._id, {
-                          $set: { status: "opted-out" },
-                        });
-                        console.log(`🛑 Sequence stopped for ${fromEmail}`);
-                      }
-                    }
+                  // ── Stop sequence for negative categories ──────────────
+                  if (category && STOP_SEQUENCE_CATEGORIES.includes(category)) {
+                    await Lead.findByIdAndUpdate(leadDoc._id, {
+                      $set: { status: "opted-out" },
+                    });
+                    console.log(
+                      `🛑 Sequence stopped for ${fromEmail} [${category}]`,
+                    );
                   }
 
-                  // ── Auto reply — global campaign toggle ──────────────────
+                  // ── Auto reply — global campaign toggle ────────────────
                   if (campaignDoc.autoReply) {
                     console.log(`🤖 Auto-replying to ${fromEmail}`);
                     await autoReply(

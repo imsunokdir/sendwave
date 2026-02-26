@@ -58,8 +58,17 @@ export const searchRelevantContext = async (
     vector: embedding,
     topK: 3,
     includeMetadata: true,
-    filter: { campaignId: { $eq: campaignId } }, // ← filter by campaign
+    filter: { campaignId: { $eq: campaignId } },
   });
+
+  console.log(
+    `🔍 Pinecone results for campaign ${campaignId}:`,
+    results.matches?.length,
+  );
+  console.log(
+    `🔍 Pinecone matches:`,
+    results.matches?.map((m) => m.metadata?.text),
+  );
 
   return results.matches?.map((m) => m.metadata?.text).join("\n") ?? "";
 };
