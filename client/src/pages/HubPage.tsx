@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { Mail, Send } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
@@ -11,7 +11,7 @@ const TABS = [
   { id: "outreach", label: "Outreach", icon: <Send size={15} /> },
 ] as const;
 
-type TabId = (typeof TABS)[number]["id"];
+// type TabId = (typeof TABS)[number]["id"];
 
 function TabLoader() {
   return (

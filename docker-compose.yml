@@ -1,34 +1,24 @@
-version: "3.9"
-
 services:
   server:
     build:
       context: ./server
       dockerfile: Dockerfile
-    container_name: outboxlabs_server
+    container_name: sendwave_server
     ports:
       - "5000:5000"
     env_file:
       - ./server/.env
-    volumes:
-      - ./server:/app
-      - /app/node_modules
     restart: unless-stopped
 
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
-    container_name: outboxlabs_client
+      args:
+        - VITE_BASE_URL=http://localhost:5000 # ← add this
+    container_name: sendwave_client
     ports:
-      - "5173:5173"
-    env_file:
-      - ./client/.env
+      - "80:80"
     depends_on:
       - server
-    volumes:
-      - ./client:/app
-      - /app/node_modules
-    environment:
-      - NODE_OPTIONS=--max-old-space-size=4096
     restart: unless-stopped

@@ -14,11 +14,11 @@ import {
 import type {
   CampaignStep,
   CampaignSchedule,
-  ICampaignCategory,
+  // ICampaignCategory,
 } from "../services/campaignService";
 import type { ContextSnippet } from "../component/campaign/CampaignContextSteps";
 import CampaignContextStep from "../component/campaign/CampaignContextSteps";
-import CampaignCategories from "../component/campaign/CampaignCategories";
+// import CampaignCategories from "../component/campaign/CampaignCategories";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FormState {

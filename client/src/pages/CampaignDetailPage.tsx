@@ -4,7 +4,7 @@ import {
   useCallback,
   lazy,
   Suspense,
-  useRef,
+  // useRef,
 } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -37,22 +37,22 @@ import {
   saveCampaignContextService,
   deleteCampaignContextService,
   getCampaignLeadsService,
-  updateReplyRulesService,
-  triggerAutoReplyService,
-  updateCategoriesService,
-  triggerCategoryReplyService,
+  // updateReplyRulesService,
+  // triggerAutoReplyService,
+  // updateCategoriesService,
+  // triggerCategoryReplyService,
   updateCampaignAutoReplyService,
 } from "../services/campaignService";
 import type {
   Campaign,
   Lead,
   CampaignContextItem,
-  ICampaignCategory,
+  // ICampaignCategory,
 } from "../services/campaignService";
 import StepBuilder from "../component/campaign/StepBuilder";
 import SchedulePicker from "../component/campaign/SchedulePicker";
 import LeadUploader from "../component/campaign/LeadUploader";
-import CampaignCategories from "../component/campaign/CampaignCategories";
+// import CampaignCategories from "../component/campaign/CampaignCategories";
 
 // Lazy loaded — only rendered when needed
 const SmartReplyPanel = lazy(
@@ -174,13 +174,13 @@ const inputStyle: React.CSSProperties = {
 
 const LEADS_PER_PAGE = 50;
 
-const CATEGORIES = [
-  { key: "Interested", emoji: "✅", color: "#22c55e", canSend: true },
-  { key: "Meeting Booked", emoji: "📅", color: "#3b82f6", canSend: true },
-  { key: "Out of Office", emoji: "🏖️", color: "#f59e0b", canSend: true },
-  { key: "Not Interested", emoji: "❌", color: "#9ca3af", canSend: false },
-  { key: "Spam", emoji: "🚫", color: "#ef4444", canSend: false },
-];
+// const CATEGORIES = [
+//   { key: "Interested", emoji: "✅", color: "#22c55e", canSend: true },
+//   { key: "Meeting Booked", emoji: "📅", color: "#3b82f6", canSend: true },
+//   { key: "Out of Office", emoji: "🏖️", color: "#f59e0b", canSend: true },
+//   { key: "Not Interested", emoji: "❌", color: "#9ca3af", canSend: false },
+//   { key: "Spam", emoji: "🚫", color: "#ef4444", canSend: false },
+// ];
 
 // function ReplyRulesPanel({
 //   campaignId,
@@ -413,7 +413,7 @@ export default function CampaignDetailPage() {
   const [leadsType, setLeadsType] = useState<"raw" | "csv">("raw");
   const [leadCount, setLeadCount] = useState(0);
   const [uploadingLeads, setUploadingLeads] = useState(false);
-  const [savingCategories, setSavingCategories] = useState(false);
+  // const [savingCategories, setSavingCategories] = useState(false);
 
   const [leadsResult, setLeadsResult] = useState<{
     added: number;
@@ -470,29 +470,29 @@ export default function CampaignDetailPage() {
   //     setSavingCategories(false);
   //   }
   // };
-  const categoriesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  // const categoriesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(
+  //   null,
+  // );
 
-  const handleCategoriesChange = (categories: ICampaignCategory[]) => {
-    if (!campaign) return;
-    setCampaign({ ...campaign, categories });
-    if (categoriesSaveTimer.current) clearTimeout(categoriesSaveTimer.current);
-    categoriesSaveTimer.current = setTimeout(async () => {
-      setSavingCategories(true);
-      try {
-        await updateCategoriesService(campaign._id, categories);
-      } catch {
-        setError("Failed to save categories.");
-      } finally {
-        setSavingCategories(false);
-      }
-    }, 800);
-  };
-  const handleTriggerCategory = async (categoryName: string) => {
-    if (!campaign) return;
-    await triggerCategoryReplyService(campaign._id, categoryName);
-  };
+  // const handleCategoriesChange = (categories: ICampaignCategory[]) => {
+  //   if (!campaign) return;
+  //   setCampaign({ ...campaign, categories });
+  //   if (categoriesSaveTimer.current) clearTimeout(categoriesSaveTimer.current);
+  //   categoriesSaveTimer.current = setTimeout(async () => {
+  //     setSavingCategories(true);
+  //     try {
+  //       await updateCategoriesService(campaign._id, categories);
+  //     } catch {
+  //       setError("Failed to save categories.");
+  //     } finally {
+  //       setSavingCategories(false);
+  //     }
+  //   }, 800);
+  // };
+  // const handleTriggerCategory = async (categoryName: string) => {
+  //   if (!campaign) return;
+  //   await triggerCategoryReplyService(campaign._id, categoryName);
+  // };
 
   const loadLeads = useCallback(
     async (page: number, status: string) => {
@@ -1413,7 +1413,7 @@ export default function CampaignDetailPage() {
           </div>
 
           {/* Reply Categories — for labeling + stop sequence only */}
-          <div
+          {/* <div
             style={{
               background: "#fff",
               border: "1px solid #e5e7eb",
@@ -1454,13 +1454,13 @@ export default function CampaignDetailPage() {
                 />
               )}
             </div>
-            {/* <div style={{ padding: "14px 18px" }}>
+            <div style={{ padding: "14px 18px" }}>
               <CampaignCategories
                 categories={campaign.categories ?? []}
                 onChange={handleCategoriesChange}
               />
-            </div> */}
-          </div>
+            </div>
+          </div> */}
 
           {/* Sequence */}
           <div

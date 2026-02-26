@@ -5,12 +5,12 @@ import cors from "cors";
 import emailRouter from "./routes/email.route";
 
 import testRouter from "./routes/test.route";
-import accountRouter from "./ai/account.routes";
+// import accountRouter from "./ai/account.routes";
 import { connectMongo } from "./config/mongo";
 import authRouter from "./routes/auth.routes";
 import syncRouter from "./routes/syncRoutes";
-import { startEmailSyncWorker } from "./workers/emailSyncWorker";
-import { startEmailSyncCron } from "./jobs/emailSyncCron";
+// import { startEmailSyncWorker } from "./workers/emailSyncWorker";
+// import { startEmailSyncCron } from "./jobs/emailSyncCron";
 import outreachRouter from "./routes/outreach.routes";
 import cookieParser from "cookie-parser";
 import campaignRouter from "./routes/campaign.routes";
@@ -39,7 +39,7 @@ app.use(cors(corsOptions));
 
 // Routes
 app.use("/emails", emailRouter);
-app.use("/accounts", accountRouter);
+// app.use("/accounts", accountRouter);
 app.use("/auth", authRouter);
 app.use("/sync", syncRouter);
 app.use("/outreach", outreachRouter);

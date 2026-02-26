@@ -1,4 +1,4 @@
-import SyncPreferences from "../component/settings/SyncPreferences";
+// import SyncPreferences from "../component/settings/SyncPreferences";
 import DangerZone from "../component/settings/DangerZone";
 
 export default function SettingsPage() {

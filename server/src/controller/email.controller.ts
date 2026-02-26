@@ -1,17 +1,17 @@
 import { Request, Response } from "express";
-import {
-  // elasticClient,
-  getAllEmails,
-  getEmailById,
-  searchEmails,
-} from "../services/elasticSearch";
-import { recategorizePendingEmails } from "../ai/reCategorizejob";
+// import {
+//   // elasticClient,
+//   getAllEmails,
+//   getEmailById,
+//   searchEmails,
+// } from "../services/elasticSearch";
+// import { recategorizePendingEmails } from "../ai/reCategorizejob";
 // import { generateSuggestedReplies } from "../ai/geminiSuggestedReplies";
 import { EmailType } from "../types/EmailTypes";
 // import nodemailer from "nodemailer";
 // import { generateRAGRepliesGemini } from "../ai/ragReplies";
 // import { ai } from "src/ai/gemini";
-import { generateRAGRepliesOllama } from "../ai/ollamaSuggestedReplies";
+// import { generateRAGRepliesOllama } from "../ai/ollamaSuggestedReplies";
 import { EmailAccount } from "../models/emailAccounts.model";
 import { client } from "../config/algoliaClient";
 // import { batchCategorizeEmails } from "../ai/batchCatgegorize";
@@ -24,70 +24,70 @@ type EmailsResponse = {
   totalPages: number;
 };
 
-export const searchEmailsC = async (req: Request, res: Response) => {
-  const { q, account, folder, page, limit } = req.query as {
-    q: string;
-    account?: string;
-    folder?: string;
-    page?: string;
-    limit?: string;
-  };
+// export const searchEmailsC = async (req: Request, res: Response) => {
+//   const { q, account, folder, page, limit } = req.query as {
+//     q: string;
+//     account?: string;
+//     folder?: string;
+//     page?: string;
+//     limit?: string;
+//   };
 
-  try {
-    const results = await searchEmails(
-      q,
-      account,
-      folder,
-      page ? parseInt(page) : 1,
-      limit ? parseInt(limit) : 10,
-    );
-    res.json({ results });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Search failed" });
-  }
-};
+//   try {
+//     const results = await searchEmails(
+//       q,
+//       account,
+//       folder,
+//       page ? parseInt(page) : 1,
+//       limit ? parseInt(limit) : 10,
+//     );
+//     res.json({ results });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ error: "Search failed" });
+//   }
+// };
 
-export const getAllEmailsController = async (req: Request, res: Response) => {
-  const { account, folder, page, limit, query, category } = req.query as {
-    account?: string;
-    folder?: string;
-    page?: string;
-    limit?: string;
-    query?: string;
-    category?: string;
-  };
+// export const getAllEmailsController = async (req: Request, res: Response) => {
+//   const { account, folder, page, limit, query, category } = req.query as {
+//     account?: string;
+//     folder?: string;
+//     page?: string;
+//     limit?: string;
+//     query?: string;
+//     category?: string;
+//   };
 
-  try {
-    let results;
+//   try {
+//     let results;
 
-    if (query?.trim()) {
-      // If search query exists, use searchEmails
-      results = await searchEmails(
-        query,
-        account,
-        folder,
-        page ? parseInt(page) : 1,
-        limit ? parseInt(limit) : 10,
-        category,
-      );
-    } else {
-      // Otherwise fetch all emails normally
-      results = await getAllEmails(
-        account,
-        folder,
-        page ? parseInt(page) : 1,
-        limit ? parseInt(limit) : 10,
-        category,
-      );
-    }
+//     if (query?.trim()) {
+//       // If search query exists, use searchEmails
+//       results = await searchEmails(
+//         query,
+//         account,
+//         folder,
+//         page ? parseInt(page) : 1,
+//         limit ? parseInt(limit) : 10,
+//         category,
+//       );
+//     } else {
+//       // Otherwise fetch all emails normally
+//       results = await getAllEmails(
+//         account,
+//         folder,
+//         page ? parseInt(page) : 1,
+//         limit ? parseInt(limit) : 10,
+//         category,
+//       );
+//     }
 
-    res.json({ results });
-  } catch (error: any) {
-    console.error("Failed to fetch emails:", error.message);
-    res.status(500).json({ error: "Failed to fetch emails" });
-  }
-};
+//     res.json({ results });
+//   } catch (error: any) {
+//     console.error("Failed to fetch emails:", error.message);
+//     res.status(500).json({ error: "Failed to fetch emails" });
+//   }
+// };
 
 export const getEmailsAlgolia = async (req: Request, res: Response) => {
   try {
@@ -179,66 +179,66 @@ export const searchEmailAlgolia = async (req: Request, res: Response) => {
   }
 };
 
-export const getEmailByIdController = async (req: Request, res: Response) => {
-  const { id } = req.body;
+// export const getEmailByIdController = async (req: Request, res: Response) => {
+//   const { id } = req.body;
 
-  try {
-    const email = await getEmailById(id);
+//   try {
+//     const email = await getEmailById(id);
 
-    if (!email) {
-      return res.status(404).json({ error: "Email not foundd" });
-    }
+//     if (!email) {
+//       return res.status(404).json({ error: "Email not foundd" });
+//     }
 
-    res.json({ email });
-  } catch (error) {
-    console.error("Failed to fetch email by ID:", error);
-    res.status(500).json({ error: "Failed to fetch email" });
-  }
-};
+//     res.json({ email });
+//   } catch (error) {
+//     console.error("Failed to fetch email by ID:", error);
+//     res.status(500).json({ error: "Failed to fetch email" });
+//   }
+// };
 
-export const reCatgorizeEmails = async (req: Request, res: Response) => {
-  recategorizePendingEmails();
-  res.json({
-    message: "Re-categorization job started manually",
-    note: "Check server logs for progress",
-  });
-};
+// export const reCatgorizeEmails = async (req: Request, res: Response) => {
+//   recategorizePendingEmails();
+//   res.json({
+//     message: "Re-categorization job started manually",
+//     note: "Check server logs for progress",
+//   });
+// };
 
-export const getSuggestedRepliesController = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
-    const { emailId } = req.body;
+// export const getSuggestedRepliesController = async (
+//   req: Request,
+//   res: Response,
+// ) => {
+//   try {
+//     const { emailId } = req.body;
 
-    const result = await getEmailById(emailId);
+//     const result = await getEmailById(emailId);
 
-    if (!result || !result.email) {
-      return res.status(404).json({
-        error: "Email not found",
-        message: `No email found with id: ${emailId}`,
-      });
-    }
+//     if (!result || !result.email) {
+//       return res.status(404).json({
+//         error: "Email not found",
+//         message: `No email found with id: ${emailId}`,
+//       });
+//     }
 
-    const email = result.email as EmailType;
+//     const email = result.email as EmailType;
 
-    const suggestedReplies = await generateRAGRepliesOllama(email);
+//     const suggestedReplies = await generateRAGRepliesOllama(email);
 
-    res.json({
-      emailId: email.id,
-      subject: email.subject,
-      from: email.from,
-      suggestedReplies,
-      method: "RAG",
-    });
-  } catch (error: any) {
-    console.error("Error generating suggested replies:", error);
-    res.status(500).json({
-      error: "Failed to generate suggested replies",
-      message: error.message,
-    });
-  }
-};
+//     res.json({
+//       emailId: email.id,
+//       subject: email.subject,
+//       from: email.from,
+//       suggestedReplies,
+//       method: "RAG",
+//     });
+//   } catch (error: any) {
+//     console.error("Error generating suggested replies:", error);
+//     res.status(500).json({
+//       error: "Failed to generate suggested replies",
+//       message: error.message,
+//     });
+//   }
+// };
 
 export const getUserEmailAccounts = async (req: Request, res: Response) => {
   try {

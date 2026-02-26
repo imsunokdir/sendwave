@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Zap, Bot, Send, X, Check, RefreshCw } from "lucide-react";
+import { Zap, Bot, Send, X, RefreshCw } from "lucide-react";
 import { api } from "../../services/api";
 
 interface SmartReplyPanelProps {
