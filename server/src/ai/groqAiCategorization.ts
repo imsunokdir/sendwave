@@ -1,6 +1,6 @@
 import Groq from "groq-sdk";
 import dotenv from "dotenv";
-import { dot } from "node:test/reporters";
+// import { dot } from "node:test/reporters";
 
 dotenv.config();
 
@@ -60,7 +60,7 @@ export const categorizeEmail = async (text: string): Promise<string> => {
         {
           role: "system",
           content: `You are an email categorizer. Categorize emails into exactly ONE of these categories: ${categories.join(
-            ", "
+            ", ",
           )}. Respond with ONLY the category name.`,
         },
         {
@@ -87,7 +87,7 @@ export const categorizeEmail = async (text: string): Promise<string> => {
       quotaResetTime = Date.now() + retryAfter;
 
       console.error(
-        `🚫 Rate limit hit! Pausing for ${Math.ceil(retryAfter / 1000)}s`
+        `🚫 Rate limit hit! Pausing for ${Math.ceil(retryAfter / 1000)}s`,
       );
       console.error("   Groq free tier: 30 requests/min");
       return "Pending Categorization";
@@ -96,7 +96,7 @@ export const categorizeEmail = async (text: string): Promise<string> => {
     // Handle authentication errors
     if (err.status === 401) {
       console.error(
-        "   Invalid API key! Get one from: https://console.groq.com"
+        "   Invalid API key! Get one from: https://console.groq.com",
       );
     }
 

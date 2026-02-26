@@ -4,7 +4,7 @@ import redisConnection from "../config/redis";
 import { Campaign } from "../models/campaign.model";
 import { Lead } from "../models/lead.model";
 import { EmailAccount } from "../models/emailAccounts.model";
-import { decrypt } from "../utility/encryptionUtility";
+// import { decrypt } from "../utility/encryptionUtility";
 import { getValidAccessToken } from "../services/tokenRefresh";
 
 export const startCampaignWorker = () => {

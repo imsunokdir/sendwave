@@ -1,6 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
-import dotenv from "dotenv";
+// import { GoogleGenAI } from "@google/genai";
+// import dotenv from "dotenv";
 
-dotenv.config();
+// dotenv.config();
 
-export const ai = new GoogleGenAI({});
+// export const ai = new GoogleGenAI({});

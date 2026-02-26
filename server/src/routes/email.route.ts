@@ -1,10 +1,10 @@
 import express from "express";
 import {
   // searchEmailsC,
-  reCatgorizeEmails,
-  getAllEmailsController,
-  getEmailByIdController,
-  getSuggestedRepliesController,
+  // reCatgorizeEmails,
+  // getAllEmailsController,
+  // getEmailByIdController,
+  // getSuggestedRepliesController,
   getUserEmailAccounts,
   getEmailsAlgolia,
   searchEmailAlgolia,
@@ -20,10 +20,10 @@ import {
 
 const emailRouter = express.Router();
 
-emailRouter.get("/all", getAllEmailsController);
-emailRouter.post("/recategorize", reCatgorizeEmails);
-emailRouter.post("/get-by-id", getEmailByIdController);
-emailRouter.post("/suggested-replies", getSuggestedRepliesController);
+// emailRouter.get("/all", getAllEmailsController);
+// emailRouter.post("/recategorize", reCatgorizeEmails);
+// emailRouter.post("/get-by-id", getEmailByIdController);
+// emailRouter.post("/suggested-replies", getSuggestedRepliesController);
 emailRouter.get("/get-all-accounts", authMiddleware, getUserEmailAccounts);
 emailRouter.post("/add", authMiddleware, addEmailAccount);
 emailRouter.get("/search", authMiddleware, searchEmailAlgolia);

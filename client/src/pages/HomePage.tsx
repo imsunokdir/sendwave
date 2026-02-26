@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { api } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 interface CampaignSummary {
   _id: string;
@@ -115,14 +116,16 @@ export default function HomePage() {
   } | null>(null);
   const [byStatus, setByStatus] = useState<ByStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
+  const { user } = useAuth();
+  // const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // useEffect(() => {
+  //   setMounted(true);
+  // }, []);
 
   useEffect(() => {
     const load = async () => {
+      if (!user) return;
       try {
         const [campaignsRes, statsRes] = await Promise.all([
           api.get("/campaigns"),
@@ -196,7 +199,7 @@ export default function HomePage() {
       }
     };
     load();
-  }, []);
+  }, [user]);
 
   const replyRate =
     data && (data.totalSent ?? 0) > 0

@@ -1,31 +1,31 @@
 import { useState } from "react";
-import { Plus, Trash2, Bell, BellOff, Power, Clock } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useAccounts } from "../../context/AccountsContext";
 import type { Account } from "../../context/AccountsContext";
 import {
-  addEmailAccountService,
+  // addEmailAccountService,
   deleteEmailAccountService,
-  toggleSyncService,
-  toggleNotificationsService,
+  // toggleSyncService,
+  // toggleNotificationsService,
 } from "../../services/emailService";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const formatLastSynced = (date: string): string => {
-  if (!date) return "Never";
-  const mins = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-};
+// const formatLastSynced = (date: string): string => {
+//   if (!date) return "Never";
+//   const mins = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
+//   if (mins < 1) return "Just now";
+//   if (mins < 60) return `${mins}m ago`;
+//   const hrs = Math.floor(mins / 60);
+//   if (hrs < 24) return `${hrs}h ago`;
+//   return `${Math.floor(hrs / 24)}d ago`;
+// };
 
-const statusColor: Record<string, string> = {
-  synced: "#22c55e",
-  error: "#ef4444",
-  syncing: "#3b82f6",
-  idle: "#9ca3af",
-};
+// const statusColor: Record<string, string> = {
+//   synced: "#22c55e",
+//   error: "#ef4444",
+//   syncing: "#3b82f6",
+//   idle: "#9ca3af",
+// };
 
 const providerStyle: Record<
   string,
@@ -80,20 +80,20 @@ function IconBtn({
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function EmailAccounts() {
-  const { accounts, isLoading, setAccounts, refetch } = useAccounts();
+  const { accounts, isLoading, setAccounts } = useAccounts();
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
-  const [showForm, setShowForm] = useState(false);
+  // const [showForm, setShowForm] = useState(false);
   // const [submitting, setSubmitting] = useState(false);
   // const [error, setError] = useState("");
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-    imapHost: "",
-    imapPort: "993",
-    imapTLS: true,
-    provider: "gmail",
-  });
-  const isCustom = form.provider === "custom";
+  // const [form, setForm] = useState({
+  //   email: "",
+  //   password: "",
+  //   imapHost: "",
+  //   imapPort: "993",
+  //   imapTLS: true,
+  //   provider: "gmail",
+  // });
+  // const isCustom = form.provider === "custom";
 
   const setAccountLoading = (id: string, val: boolean) =>
     setLoadingIds((p) => {

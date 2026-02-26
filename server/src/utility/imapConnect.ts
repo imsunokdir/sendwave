@@ -1,9 +1,9 @@
 import { ImapFlow } from "imapflow";
-import { decrypt } from "./encryptionUtility";
+// import { decrypt } from "./encryptionUtility";
 import pino from "pino";
 import { getValidAccessToken } from "../services/tokenRefresh";
 
-const logger = pino({ level: "error" });
+// const logger = pino({ level: "error" });
 
 export const createImapClient = async (account: any): Promise<ImapFlow> => {
   const accessToken = await getValidAccessToken(account._id.toString());
