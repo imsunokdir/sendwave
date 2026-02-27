@@ -117,11 +117,6 @@ export default function HomePage() {
   const [byStatus, setByStatus] = useState<ByStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  // const [mounted, setMounted] = useState(false);
-
-  // useEffect(() => {
-  //   setMounted(true);
-  // }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -193,7 +188,15 @@ export default function HomePage() {
           recentReplies,
         });
       } catch {
-        /* fail */
+        // Set empty data on error so UI renders
+        setData({
+          totalLeads: 0,
+          totalSent: 0,
+          totalReplied: 0,
+          activeCampaigns: 0,
+          campaigns: [],
+          recentReplies: [],
+        });
       } finally {
         setLoading(false);
       }
@@ -213,6 +216,9 @@ export default function HomePage() {
     : [];
 
   const totalLeadsInPie = pieData.reduce((s, d) => s + d.value, 0);
+
+  const campaigns = data?.campaigns ?? [];
+  const recentReplies = data?.recentReplies ?? [];
 
   return (
     <div
@@ -551,7 +557,6 @@ export default function HomePage() {
                             <Tooltip content={<CustomTooltip />} />
                           </PieChart>
                         </ResponsiveContainer>
-                        {/* Center label */}
                         <div
                           style={{
                             position: "absolute",
@@ -585,7 +590,6 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      {/* Legend */}
                       <div
                         style={{
                           display: "grid",
@@ -642,7 +646,7 @@ export default function HomePage() {
               </div>
 
               {/* Recent replies / Campaign health */}
-              {data!.recentReplies.length > 0 ? (
+              {recentReplies.length > 0 ? (
                 <div
                   style={{
                     background: "#fff",
@@ -682,10 +686,10 @@ export default function HomePage() {
                         color: "#16a34a",
                       }}
                     >
-                      {data!.recentReplies.length} new
+                      {recentReplies.length} new
                     </span>
                   </div>
-                  {data!.recentReplies.map((reply, i) => (
+                  {recentReplies.map((reply, i) => (
                     <div
                       key={reply.email + i}
                       className="dash-row"
@@ -697,7 +701,7 @@ export default function HomePage() {
                       style={{
                         padding: "10px 16px",
                         borderBottom:
-                          i < data!.recentReplies.length - 1
+                          i < recentReplies.length - 1
                             ? "1px solid #f9fafb"
                             : "none",
                         display: "flex",
@@ -809,30 +813,26 @@ export default function HomePage() {
                     {[
                       {
                         label: "Active",
-                        value: data!.campaigns.filter(
-                          (c) => c.status === "active",
-                        ).length,
+                        value: campaigns.filter((c) => c.status === "active")
+                          .length,
                         color: "#22c55e",
                       },
                       {
                         label: "Paused",
-                        value: data!.campaigns.filter(
-                          (c) => c.status === "paused",
-                        ).length,
+                        value: campaigns.filter((c) => c.status === "paused")
+                          .length,
                         color: "#ca8a04",
                       },
                       {
                         label: "Draft",
-                        value: data!.campaigns.filter(
-                          (c) => c.status === "draft",
-                        ).length,
+                        value: campaigns.filter((c) => c.status === "draft")
+                          .length,
                         color: "#9ca3af",
                       },
                       {
                         label: "Completed",
-                        value: data!.campaigns.filter(
-                          (c) => c.status === "completed",
-                        ).length,
+                        value: campaigns.filter((c) => c.status === "completed")
+                          .length,
                         color: "#6366f1",
                       },
                     ].map(({ label, value, color }) => (
@@ -884,7 +884,7 @@ export default function HomePage() {
                           <div
                             style={{
                               height: "100%",
-                              width: `${data!.campaigns.length > 0 ? (value / data!.campaigns.length) * 100 : 0}%`,
+                              width: `${campaigns.length > 0 ? (value / campaigns.length) * 100 : 0}%`,
                               background: color,
                               borderRadius: 99,
                               transition: "width .4s",
@@ -924,7 +924,7 @@ export default function HomePage() {
                   All Campaigns
                 </span>
                 <span style={{ fontSize: 11, color: "#9ca3af" }}>
-                  ({data!.campaigns.length})
+                  ({campaigns.length})
                 </span>
                 <button
                   onClick={() => navigate("/hub?tab=outreach")}
@@ -942,7 +942,7 @@ export default function HomePage() {
                 </button>
               </div>
 
-              {data!.campaigns.length === 0 ? (
+              {campaigns.length === 0 ? (
                 <div style={{ padding: "40px 20px", textAlign: "center" }}>
                   <p
                     style={{
@@ -973,7 +973,7 @@ export default function HomePage() {
                   </button>
                 </div>
               ) : (
-                data!.campaigns.slice(0, 8).map((campaign, i) => {
+                campaigns.slice(0, 8).map((campaign, i) => {
                   const badge =
                     statusBadge[campaign.status] ?? statusBadge.draft;
                   const dot = statusDot[campaign.status] ?? "#9ca3af";
@@ -999,7 +999,7 @@ export default function HomePage() {
                       style={{
                         padding: "12px 18px",
                         borderBottom:
-                          i < Math.min(data!.campaigns.length, 8) - 1
+                          i < Math.min(campaigns.length, 8) - 1
                             ? "1px solid #f9fafb"
                             : "none",
                         display: "flex",
@@ -1116,7 +1116,7 @@ export default function HomePage() {
             </div>
 
             {/* No active hint */}
-            {data!.activeCampaigns === 0 && data!.campaigns.length > 0 && (
+            {(data?.activeCampaigns ?? 0) === 0 && campaigns.length > 0 && (
               <div
                 style={{
                   marginTop: 12,
