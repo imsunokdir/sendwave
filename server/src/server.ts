@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+dotenv.config();
 
 import emailRouter from "./routes/email.route";
 
@@ -18,8 +19,6 @@ import { startCampaignWorker } from "./workers/campaignWorker";
 import { startCampaignCron } from "./jobs/campaignCron";
 import { startCampaignReplyCron } from "./jobs/campaignReplyCron";
 // import oauthRouter from "./routes/oauth.routes";
-
-dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 
