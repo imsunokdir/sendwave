@@ -1,5 +1,7 @@
 import IORedis from "ioredis";
+require("dotenv").config();
 
+// Create Redis connection
 const redisConnection = process.env.REDIS_URL
   ? new IORedis(process.env.REDIS_URL, {
       tls: { rejectUnauthorized: false },
