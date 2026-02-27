@@ -1,4 +1,13 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: sendwave_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
   server:
     build:
       context: ./server
@@ -8,6 +17,8 @@ services:
       - "5000:5000"
     env_file:
       - ./server/.env
+    depends_on:
+      - redis
     restart: unless-stopped
 
   client:
@@ -15,10 +26,13 @@ services:
       context: ./client
       dockerfile: Dockerfile
       args:
-        - VITE_BASE_URL=http://localhost:5000 # ← add this
+        - VITE_BASE_URL=http://localhost:5000
     container_name: sendwave_client
     ports:
       - "80:80"
     depends_on:
       - server
     restart: unless-stopped
+
+volumes:
+  redis_data:
