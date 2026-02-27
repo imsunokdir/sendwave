@@ -11,6 +11,7 @@ import bcrypt from "bcryptjs";
 // import { EmailAccount } from "src/models/emailAccounts.model";
 // import { pineconeIndex } from "src/config/pinecone";
 // import { client } from "src/config/algoliaClient";
+require("dotenv").config();
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
