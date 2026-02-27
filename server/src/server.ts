@@ -34,6 +34,7 @@ const corsOptions = {
   allowedHeaders: "Content-Type,Authorization,Accept",
   optionsSuccessStatus: 204,
   maxAge: 0,
+  exposedHeaders: ["set-cookie"],
 };
 app.use(cors(corsOptions));
 
