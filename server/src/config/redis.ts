@@ -4,7 +4,6 @@ require("dotenv").config();
 const redisConnection: ConnectionOptions = process.env.REDIS_URL
   ? {
       url: process.env.REDIS_URL,
-      tls: { rejectUnauthorized: false },
     }
   : {
       host: "127.0.0.1",
