@@ -6,8 +6,7 @@ Sendwave is a full-stack cold email outreach platform that automates multi-step 
 
 ## 🚀 Live Demo
 
-> Frontend: https://your-vercel-url.vercel.app  
-> Backend: https://your-railway-url.railway.app
+> https://your-vercel-url.vercel.app  
 
 ---
 
